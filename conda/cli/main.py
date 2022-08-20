@@ -90,22 +90,57 @@ def main_subshell(*args, post_parse_hook=None, **kwargs):
         return exit_code.rc
 
 
-def main_sourced(shell, *args, **kwargs):
+def _shell_subparser(sub_parsers, name):
+    shell_parser = sub_parsers.add_parser(name)
+    activation_parsers = shell_parser.add_subparsers(dest="cmd")
+
+    activate_parser = activation_parsers.add_parser("activate")
+    activate_parser.add_argument("--dev", action="store_true")
+    stack_group = activate_parser.add_mutually_exclusive_group()
+    stack_group.add_argument("--stack", action="store_true")
+    stack_group.add_argument("--no-stack", dest="stack", action="store_false")
+    activate_parser.add_argument("env")
+
+    deactivate_parser = activation_parsers.add_parser("deactivate")
+    deactivate_parser.add_argument("--dev", action="store_true")
+
+    reactivate_parser = activation_parsers.add_parser("reactivate")
+    reactivate_parser.add_argument("--dev", action="store_true")
+
+    hook_parser = activation_parsers.add_parser("hook")
+    hook_parser.add_argument("--dev", action="store_true")
+
+    commands_parser = activation_parsers.add_parser("commands")  # noqa: F841
+
+
+def _sourced_parser():
+    from .conda_argparse import ArgumentParser
+    from ..activate import activator_map, formatter_map
+
+    p = ArgumentParser()
+    sub_parsers = p.add_subparsers(dest="shell", required=True)
+    for shell in activator_map:
+        _shell_subparser(sub_parsers, f"shell.{shell}")
+        for formatter in formatter_map:
+            _shell_subparser(sub_parsers, f"shell.{shell}+{formatter}")
+
+    return p
+
+
+def main_sourced(*args, **kwargs):
     """Entrypoint for the "sourced" invocation of CLI interface. E.g. `conda activate`."""
-    shell = shell.replace("shell.", "", 1)
+    args = args or ["--help"]
+
+    p = _sourced_parser()
+    args = p.parse_args(args)
 
     from ..base.context import context
-
     context.__init__()
     init_loggers(context)
 
     from ..activate import _build_activator_cls
 
-    try:
-        activator_cls = _build_activator_cls(shell)
-    except KeyError:
-        from ..exceptions import CondaError
-        raise CondaError("%s is not a supported shell." % shell)
+    activator_cls = _build_activator_cls(args.shell[6:])
 
     activator = activator_cls(args)
     print(activator.execute(), end="")

@@ -4,6 +4,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from errno import ENOENT
+import functools
 import json
 import os
 from os.path import abspath, basename, dirname, expanduser, expandvars, isdir, join, exists
@@ -12,9 +13,9 @@ import sys
 from textwrap import dedent
 
 try:
-    from tlz.itertoolz import concatv, drop
+    from tlz.itertoolz import concatv
 except ImportError:
-    from conda._vendor.toolz.itertoolz import concatv, drop
+    from conda._vendor.toolz.itertoolz import concatv
 
 # Since we have to have configuration context here, anything imported by
 #   conda.base.context is fair game, but nothing more.
@@ -134,6 +135,18 @@ class _Activator(object):
         else:
             raise NotImplementedError()
 
+    @property
+    @functools.lru_cache(maxsize=None)
+    def stack(self):
+        if isinstance(self._raw_arguments.stack, bool):
+            return self._raw_arguments.stack
+        return context.auto_stack and context.shlvl <= context.auto_stack
+
+    @property
+    @functools.lru_cache(maxsize=None)
+    def env_name_or_prefix(self):
+        return self._raw_arguments.env
+
     def activate(self):
         if self.stack:
             builder_result = self.build_stack(self.env_name_or_prefix)
@@ -163,8 +176,11 @@ class _Activator(object):
 
     def execute(self):
         # return value meant to be written to stdout
-        self._parse_and_set_args(self._raw_arguments)
-        return getattr(self, self.command)()
+        try:
+            context.dev = self._raw_arguments.dev
+        except AttributeError:
+            pass
+        return getattr(self, self._raw_arguments.cmd)()
 
     def commands(self):
         """
@@ -188,83 +204,6 @@ class _Activator(object):
 
     def _hook_postamble(self):
         return None
-
-    def _parse_and_set_args(self, arguments):
-
-        def raise_invalid_command_error(actual_command=None):
-            from .exceptions import ArgumentError
-            message = "'activate', 'deactivate', 'hook', 'commands', or 'reactivate' " \
-                "command must be given"
-            if actual_command:
-                message += ". Instead got '%s'." % actual_command
-            raise ArgumentError(message)
-
-        if arguments is None or len(arguments) < 1:
-            raise_invalid_command_error()
-
-        command = arguments[0]
-        arguments = tuple(drop(1, arguments))
-        help_flags = ('-h', '--help', '/?')
-        non_help_args = tuple(arg for arg in arguments if arg not in help_flags)
-        help_requested = len(arguments) != len(non_help_args)
-        remainder_args = list(arg for arg in non_help_args if arg and arg != command)
-
-        if not command:
-            raise_invalid_command_error()
-        elif help_requested:
-            from .exceptions import ActivateHelp, DeactivateHelp, GenericHelp
-            help_classes = {
-                'activate': ActivateHelp(),
-                'deactivate': DeactivateHelp(),
-                'hook': GenericHelp('hook'),
-                'commands': GenericHelp('commands'),
-                'reactivate': GenericHelp('reactivate'),
-            }
-            raise help_classes[command]
-        elif command not in ('activate', 'deactivate', 'reactivate', 'hook', 'commands'):
-            raise_invalid_command_error(actual_command=command)
-
-        if command.endswith('activate') or command == 'hook':
-            try:
-                dev_idx = remainder_args.index('--dev')
-            except ValueError:
-                context.dev = False
-            else:
-                del remainder_args[dev_idx]
-                context.dev = True
-
-        if command == 'activate':
-            self.stack = context.auto_stack and context.shlvl <= context.auto_stack
-            try:
-                stack_idx = remainder_args.index('--stack')
-            except ValueError:
-                stack_idx = -1
-            try:
-                no_stack_idx = remainder_args.index('--no-stack')
-            except ValueError:
-                no_stack_idx = -1
-            if stack_idx >= 0 and no_stack_idx >= 0:
-                from .exceptions import ArgumentError
-                raise ArgumentError('cannot specify both --stack and --no-stack to ' + command)
-            if stack_idx >= 0:
-                self.stack = True
-                del remainder_args[stack_idx]
-            if no_stack_idx >= 0:
-                self.stack = False
-                del remainder_args[no_stack_idx]
-            if len(remainder_args) > 1:
-                from .exceptions import ArgumentError
-                raise ArgumentError(command + ' does not accept more than one argument:\n'
-                                    + str(remainder_args) + '\n')
-            self.env_name_or_prefix = remainder_args and remainder_args[0] or 'base'
-
-        else:
-            if remainder_args:
-                from .exceptions import ArgumentError
-                raise ArgumentError('%s does not accept arguments\nremainder_args: %s\n'
-                                    % (command, remainder_args))
-
-        self.command = command
 
     def _yield_commands(self, cmds_dict):
         for key, value in sorted(cmds_dict.get('export_path', {}).items()):
