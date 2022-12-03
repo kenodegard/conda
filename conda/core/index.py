@@ -186,8 +186,7 @@ def _supplement_index_with_system(index):
 
         rec = _make_virtual_package(f"__{package.name}", package.version)
 
-        if package.version is not None:
-            index[rec] = rec
+        index[rec] = rec
 
 
 def get_archspec_name():
