@@ -1,15 +1,13 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 import copy
 from genericpath import exists
+from itertools import chain
 from logging import DEBUG, getLogger
 from os.path import join
 import sys
 import warnings
 from textwrap import dedent
-
-from conda.common.iterators import concat
 
 from conda.common.iterators import groupby_to_dict as groupby
 
@@ -457,7 +455,7 @@ class Solver:
             # traversal if we're careful about how we handle features. We still invoke sat via
             # `r.solve()` later.
             _track_fts_specs = (spec for spec in self.specs_to_remove if 'track_features' in spec)
-            feature_names = set(concat(spec.get_raw_value('track_features')
+            feature_names = set(chain.from_iterable(spec.get_raw_value('track_features')
                                        for spec in _track_fts_specs))
             graph = PrefixGraph(ssc.solution_precs, ssc.specs_map.values())
 

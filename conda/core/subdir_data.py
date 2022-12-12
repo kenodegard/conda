@@ -1,8 +1,8 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 import bz2
 import hashlib
+from itertools import chain
 import json
 import re
 import warnings
@@ -19,9 +19,9 @@ from time import time
 from genericpath import getmtime, isfile
 
 try:
-    from tlz.itertoolz import concat, take
+    from tlz.itertoolz import take
 except ImportError:
-    from conda._vendor.toolz.itertoolz import concat, take
+    from conda._vendor.toolz.itertoolz import take
 
 from conda.common.iterators import groupby_to_dict as groupby
 
@@ -139,7 +139,7 @@ class SubdirData(metaclass=SubdirDataType):
             else partial(ThreadLimitedThreadPoolExecutor, max_workers=context.repodata_threads)
         )
         with Executor() as executor:
-            result = tuple(concat(executor.map(subdir_query, channel_urls)))
+            result = tuple(chain.from_iterable(executor.map(subdir_query, channel_urls)))
         return result
 
     def query(self, package_ref_or_match_spec):
@@ -156,7 +156,7 @@ class SubdirData(metaclass=SubdirDataType):
                         yield prec
             elif param.get_exact_value("track_features"):
                 track_features = param.get_exact_value("track") or ()
-                candidates = concat(
+                candidates = chain.from_iterable(
                     self._track_features_index[feature_name] for feature_name in track_features
                 )
                 for prec in candidates:

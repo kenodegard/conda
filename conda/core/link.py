@@ -1,8 +1,7 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
-import itertools
 from collections import defaultdict, namedtuple
+from itertools import chain
 from logging import getLogger
 import os
 from os.path import basename, dirname, isdir, join
@@ -13,9 +12,9 @@ from textwrap import indent
 import warnings
 
 try:
-    from tlz.itertoolz import concat, interleave
+    from tlz.itertoolz import interleave
 except ImportError:
-    from conda._vendor.toolz.itertoolz import concat, interleave
+    from conda._vendor.toolz.itertoolz import interleave
 
 from .package_cache_data import PackageCacheData
 from .path_actions import (CompileMultiPycAction, CreateNonadminAction, CreatePrefixRecordAction,
@@ -249,8 +248,8 @@ class UnlinkLinkTransaction:
                 log.info(exceptions)
         try:
             self._verify_pre_link_message(
-                itertools.chain(
-                    *(act.link_action_groups for act in self.prefix_action_groups.values())
+                chain.from_iterable(
+                    act.link_action_groups for act in self.prefix_action_groups.values()
                 )
             )
         except CondaSystemExit:
@@ -282,7 +281,7 @@ class UnlinkLinkTransaction:
 
         assert not context.dry_run
         try:
-            self._execute(tuple(concat(interleave(self.prefix_action_groups.values()))))
+            self._execute(tuple(chain.from_iterable(interleave(self.prefix_action_groups.values()))))
         finally:
             rm_rf(self.transaction_context['temp_dir'])
 
@@ -293,7 +292,7 @@ class UnlinkLinkTransaction:
         elif not self.prefix_setups:
             self._pfe = pfe = ProgressiveFetchExtract(())
         else:
-            link_precs = set(concat(stp.link_precs for stp in self.prefix_setups.values()))
+            link_precs = set(chain.from_iterable(stp.link_precs for stp in self.prefix_setups.values()))
             self._pfe = pfe = ProgressiveFetchExtract(link_precs)
         return pfe
 
@@ -435,7 +434,7 @@ class UnlinkLinkTransaction:
 
     @staticmethod
     def _verify_individual_level(prefix_action_group):
-        all_actions = concat(axngroup.actions
+        all_actions = chain.from_iterable(axngroup.actions
                              for action_groups in prefix_action_group
                              for axngroup in action_groups)
 

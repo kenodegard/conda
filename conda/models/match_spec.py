@@ -1,17 +1,14 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 from abc import ABCMeta, abstractmethod, abstractproperty
-
 from collections.abc import Mapping
 from functools import reduce
+from itertools import chain
 from logging import getLogger
 from operator import attrgetter
 from os.path import basename
 import warnings
 import re
-
-from conda.common.iterators import concat
 
 from conda.common.iterators import groupby_to_dict as groupby
 
@@ -465,7 +462,7 @@ class MatchSpec(metaclass=MatchSpecType):
         unmergeable = name_groups.pop('*', []) + name_groups.pop(None, [])
 
         merged_specs = []
-        mergeable_groups = tuple(concat(
+        mergeable_groups = tuple(chain.from_iterable(
             groupby(lambda s: s.optional, group).values()
             for group in name_groups.values()
         ))

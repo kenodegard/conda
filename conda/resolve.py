@@ -1,13 +1,12 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 from collections import defaultdict, OrderedDict, deque
 import copy
 from functools import lru_cache
+import itertools
 from logging import DEBUG, getLogger
 
 from conda.common.iterators import groupby_to_dict as groupby
-from conda.common.iterators import concat
 
 from .auxlib.decorators import memoizemethod
 from ._vendor.frozendict import FrozenOrderedDict as frozendict
@@ -778,7 +777,7 @@ class Resolve:
             candidate_precs = self.groups.get(spec_name, ())
         elif spec.get_exact_value('track_features'):
             feature_names = spec.get_exact_value('track_features')
-            candidate_precs = concat(
+            candidate_precs = itertools.chain.from_iterable(
                 self.trackers.get(feature_name, ()) for feature_name in feature_names
             )
         else:
@@ -818,7 +817,7 @@ class Resolve:
     @staticmethod
     def _make_channel_priorities(channels):
         priorities_map = {}
-        for priority_counter, chn in enumerate(concat(
+        for priority_counter, chn in enumerate(itertools.chain.from_iterable(
             (Channel(cc) for cc in c._channels) if isinstance(c, MultiChannel) else (c,)
             for c in (Channel(c) for c in channels)
         )):

@@ -1,7 +1,5 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
-
 from itertools import chain
 import os
 from os.path import join, abspath
@@ -10,7 +8,6 @@ from tempfile import gettempdir
 from unittest import TestCase, mock
 
 import pytest
-from tlz.itertoolz import concat
 
 from conda.auxlib.collection import AttrDict
 from conda.auxlib.ish import dals
@@ -171,7 +168,7 @@ class ContextCustomRcTests(TestCase):
                 assert channel.scheme is None
                 assert channel.canonical_name == "local"
                 assert channel.url() is None
-                urls = list(concat((
+                urls = list(chain.from_iterable((
                                join_url(url, context.subdir),
                                join_url(url, 'noarch'),
                            ) for url in context.conda_build_local_urls))

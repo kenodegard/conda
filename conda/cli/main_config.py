@@ -1,15 +1,13 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 from collections.abc import Mapping, Sequence
+from itertools import chain
 import json
 from logging import getLogger
 import os
 from os.path import isfile, join
 import sys
 from textwrap import wrap
-
-from conda.common.iterators import concat
 
 from conda.common.iterators import groupby_to_dict as groupby
 
@@ -96,7 +94,7 @@ def describe_all_parameters():
         builder.append(f"# ## {category:^48} ##")
         builder.append("# ######################################################")
         builder.append("")
-        builder.extend(concat(parameter_description_builder(name) for name in parameter_names))
+        builder.extend(chain.from_iterable(parameter_description_builder(name) for name in parameter_names))
         builder.append("")
     return "\n".join(builder)
 
@@ -195,13 +193,13 @@ def execute_config(args, parser):
                 ))
             else:
                 builder = []
-                builder.extend(concat(parameter_description_builder(name)
+                builder.extend(chain.from_iterable(parameter_description_builder(name)
                                       for name in paramater_names))
                 stdout_write('\n'.join(builder))
         else:
             if context.json:
                 skip_categories = ('CLI-only', 'Hidden and Undocumented')
-                paramater_names = sorted(concat(
+                paramater_names = sorted(chain.from_iterable(
                     parameter_names for category, parameter_names in context.category_map.items()
                     if category not in skip_categories
                 ))

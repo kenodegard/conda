@@ -1,12 +1,12 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-
 from collections import namedtuple
 from configparser import ConfigParser
 from csv import reader as csv_reader
 from email.parser import HeaderParser
 from errno import ENOENT
 from io import StringIO
+from itertools import chain
 from logging import getLogger
 from os import name as os_name, scandir, strerror
 from os.path import basename, dirname, isdir, isfile, join, lexists
@@ -15,8 +15,6 @@ from posixpath import normpath as posix_normpath
 import re
 import sys
 import warnings
-
-from conda.common.iterators import concat
 
 from conda.common.iterators import groupby_to_dict as groupby
 
@@ -329,7 +327,7 @@ class PythonDistribution:
             "python_version": self.python_version,
         }
         depends.update(
-            pyspec_to_norm_req(pyspec) for pyspec in concat(marker_groups.values())
+            pyspec_to_norm_req(pyspec) for pyspec in chain.from_iterable(marker_groups.values())
             if interpret(pyspec.marker, execution_context)
         )
         constrains = {pyspec_to_norm_req(pyspec) for pyspec in extras if pyspec.constraints}

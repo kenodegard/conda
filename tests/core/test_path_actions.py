@@ -555,7 +555,7 @@ def test_explode_directories():
         # use already_split=True for the result of get_all_directories()
         maybe_split = lambda x: x if already_split else x.split("/")
         return set(
-            toolz.concat(
+            chain.from_iterable(
                 toolz.accumulate(join, maybe_split(directory))
                 for directory in child_directories
                 if directory
