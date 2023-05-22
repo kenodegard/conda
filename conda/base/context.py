@@ -1924,7 +1924,7 @@ def validate_prefix_name(prefix_name: str, ctx: Context, allow_base=True) -> str
             return ctx.root_prefix
         else:
             raise CondaValueError(
-                "Use of 'base' as environment name is not allowed here."
+                f"Use of {prefix_name!r} as environment name is not allowed here."
             )
 
     else:
@@ -1947,31 +1947,15 @@ def determine_target_prefix(ctx, args=None):
     Raises: CondaEnvironmentNotFoundError if the prefix is invalid
     """
     argparse_args = args or ctx._argparse_args
-    try:
-        prefix_name = argparse_args.name
-    except AttributeError:
-        prefix_name = None
-    try:
-        prefix_path = argparse_args.prefix
-    except AttributeError:
-        prefix_path = None
+    prefix = getattr(argparse_args, "prefix", None)
+    name = getattr(argparse_args, "name", None)
 
-    if prefix_name is not None and not prefix_name.strip():  # pragma: no cover
-        from ..exceptions import ArgumentError
-
-        raise ArgumentError("Argument --name requires a value.")
-
-    if prefix_path is not None and not prefix_path.strip():  # pragma: no cover
-        from ..exceptions import ArgumentError
-
-        raise ArgumentError("Argument --prefix requires a value.")
-
-    if prefix_name is None and prefix_path is None:
-        return ctx.default_prefix
-    elif prefix_path is not None:
-        return expand(prefix_path)
+    if prefix:
+        return expand(prefix)
+    elif name:
+        return validate_prefix_name(name, ctx=ctx)
     else:
-        return validate_prefix_name(prefix_name, ctx=ctx)
+        return ctx.default_prefix
 
 
 def _first_writable_envs_dir():

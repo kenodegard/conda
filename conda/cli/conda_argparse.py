@@ -28,8 +28,9 @@ from ..base.constants import (
     DepsModifier,
     UpdateModifier,
 )
-from ..base.context import context
+from ..base.context import context, validate_prefix_name
 from ..common.constants import NULL
+from ..common.path import expand
 from ..deprecations import deprecated
 
 log = getLogger(__name__)
@@ -1698,20 +1699,23 @@ def add_parser_help(p):
 
 
 def add_parser_prefix(p, prefix_required=False):
-    target_environment_group = p.add_argument_group("Target Environment Specification")
-    npgroup = target_environment_group.add_mutually_exclusive_group(
-        required=prefix_required
-    )
-    npgroup.add_argument(
+    group = p.add_argument_group("Target Environment Specification")
+    mutex = group.add_mutually_exclusive_group(required=prefix_required)
+
+    mutex.add_argument(
         "-n",
         "--name",
+        dest="prefix",
+        type=validate_prefix_name,
         action="store",
         help="Name of environment.",
         metavar="ENVIRONMENT",
     )
-    npgroup.add_argument(
+    mutex.add_argument(
         "-p",
         "--prefix",
+        dest="prefix",
+        type=expand,
         action="store",
         help="Full path to environment location (i.e. prefix).",
         metavar="PATH",
