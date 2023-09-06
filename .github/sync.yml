@@ -1,0 +1,22 @@
+conda/infrastructure:
+  # standard files
+  - CODE_OF_CONDUCT.md
+  - .github/workflows/project.yml
+  - .github/workflows/issues.yml
+  - .github/workflows/labels.yml
+  - .github/workflows/stale.yml
+  - .github/workflows/lock.yml
+  - .github/workflows/cla.yml
+  - .github/ISSUE_TEMPLATE/0_bug.yml
+  - .github/ISSUE_TEMPLATE/1_feature.yml
+  - .github/ISSUE_TEMPLATE/epic.yml
+  - HOW_WE_USE_GITHUB.md
+  # release files
+  - src: .github/PULL_REQUEST_TEMPLATE/with_releases.md
+    dst: .github/PULL_REQUEST_TEMPLATE.md
+  - src: .github/sync/TEMPLATE
+    dst: news/TEMPLATE
+  - src: .github/sync/rever.xsh
+    dst: rever.xsh
+  - src: .github/sync/RELEASE.md
+    dst: RELEASE.md

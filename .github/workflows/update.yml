@@ -1,4 +1,4 @@
-name: Update Durations
+name: Update
 
 on:
   # every Sunday at 00:00 UTC
@@ -17,8 +17,16 @@ jobs:
       # https://github.com/peter-evans/create-pull-request#action-inputs
       contents: write
       pull-requests: write
+    env:
+      GIT_USER_NAME: Conda Bot
+      GIT_USER_EMAIL: 18747875+conda-bot@users.noreply.github.com
     steps:
       - uses: actions/checkout@v3
+
+      - name: configure git user
+        run: |
+          git config user.name '${{ env.GIT_USER_NAME }}'
+          git config user.email '${{ env.GIT_USER_EMAIL }}'
 
       - name: download recent artifacts
         run: |
@@ -42,7 +50,15 @@ jobs:
           python-version: '3.11'
 
       - name: combine recent durations from artifacts
-        run: python ./tools/durations/combine.py ${{ runner.temp }}/artifacts/
+        run: |
+          python ./tools/durations/combine.py ${{ runner.temp }}/artifacts/
+          git commit --all --message "Update test durations"
+
+      - name: sync files
+        run: |
+          pip install jinja2 pyyaml jsonschema pygithub
+          python ./.github/sync.py ./.github/sync.yml
+          git commit --all --message "Sync files"
 
       - name: create updated durations PR
         uses: peter-evans/create-pull-request@v5
@@ -51,9 +67,6 @@ jobs:
           token: ${{ secrets.DURATIONS_TOKEN }}
           branch: update-durations
           delete-branch: true
-          commit-message: Update test durations
-          author: Conda Bot <18747875+conda-bot@users.noreply.github.com>
-          committer: Conda Bot <18747875+conda-bot@users.noreply.github.com>
           title: 🤖 Update test durations
           body: |
             Aggregate recent test durations for each test and update the durations file.
