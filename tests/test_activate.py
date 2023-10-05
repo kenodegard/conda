@@ -15,14 +15,14 @@ from shutil import which
 from signal import SIGINT
 from subprocess import CalledProcessError, check_output
 from tempfile import gettempdir
-from typing import Iterable
+from typing import Any, Iterable, overload
 from uuid import uuid4
 
 import pytest
 from pytest import MonkeyPatch
 
 from conda import CONDA_PACKAGE_ROOT, CONDA_SOURCE_ROOT
-from conda import __version__ as conda_version
+from conda import __version__ as CONDA_VERSION
 from conda.activate import (
     CmdExeActivator,
     CshActivator,
@@ -43,7 +43,7 @@ from conda.base.constants import (
 )
 from conda.base.context import conda_tests_ctxt_mgmt_def_pol, context, reset_context
 from conda.cli.main import main_sourced
-from conda.common.compat import ensure_text_type, on_win
+from conda.common.compat import on_win
 from conda.common.io import captured, env_var, env_vars
 from conda.exceptions import EnvironmentLocationNotFound, EnvironmentNameNotFound
 from conda.gateways.disk.create import mkdir_p
@@ -110,7 +110,7 @@ PKG_B_ENV_VARS = """
 }
 """
 
-HDF5_VERSION = "1.12.1"
+CURL_VERSION = "8.2.1"
 
 
 @lru_cache(maxsize=None)
@@ -2246,56 +2246,44 @@ def test_json_basic(shell_wrapper_unit: str):
 
 
 class InteractiveShell:
-    EXE = quote_for_shell(
-        sys.executable.replace("\\", "/") if on_win else sys.executable
-    )
-    SHELLS = {
+    exe = quote_for_shell(native_path_to_unix(sys.executable))
+    SHELLS: dict[str, dict[str, Any]] = {
         "posix": {
             "activator": "posix",
-            # 'init_command': 'env | sort && mount && which {0} && {0} -V && echo "$({0} -m conda shell.posix hook)" && eval "$({0} -m conda shell.posix hook)"'.format('/c/Users/rdonnelly/mc/python.exe'), # sys.executable.replace('\\', '/')),
-            # 'init_command': 'env | sort && echo "$({0} -m conda shell.posix hook)" && eval "$({0} -m conda shell.posix hook)"'.format(self.
-            #    '/c/Users/rdonnelly/mc/python.exe'),  # sys.executable.replace('\\', '/')),
             "init_command": (
-                f'env | sort && echo "$({EXE} -m conda shell.posix hook {dev_arg})" && '
-                f'eval "$({EXE} -m conda shell.posix hook {dev_arg})" && env | sort'
+                # "env | sort "
+                # f'&& echo "$({exe} -m conda shell.posix hook {dev_arg})" && '
+                f'eval "$({exe} -m conda shell.posix hook {dev_arg})" '
+                # "&& env | sort"
             ),
-            "print_env_var": 'echo "$%s"',
+            "print_env_var": 'echo "${0}"',
+            "print_prompt": 'echo "$PS1"',
+            "print_status": "echo $?",
         },
         "bash": {
             # MSYS2's login scripts handle mounting the filesystem. Without it, /c is /cygdrive.
             "args": ("-l",) if on_win else (),
-            "base_shell": "posix",  # inheritance implemented in __init__
+            "base_shell": "posix",
         },
-        "dash": {
-            "base_shell": "posix",  # inheritance implemented in __init__
-        },
+        "dash": {"base_shell": "posix"},
         "zsh": {
-            "base_shell": "posix",  # inheritance implemented in __init__
-            "init_command": (
-                f'env | sort && eval "$({EXE} -m conda shell.zsh hook {dev_arg})"'
-            ),
+            "base_shell": "posix",
+            "init_command": f'env | sort && eval "$({exe} -m conda shell.zsh hook {dev_arg})"',
         },
         # It should be noted here that we use the latest hook with whatever conda.exe is installed
         # in sys.prefix (and we will activate all of those PATH entries).  We will set PYTHONPATH
         # though, so there is that.  What I'm getting at is that this is a huge mixup and a mess.
         "cmd.exe": {
             "activator": "cmd.exe",
-            # For non-dev-mode you'd have:
-            #            'init_command': 'set "CONDA_SHLVL=" '
-            #                            '&& @CALL {}\\shell\\condabin\\conda_hook.bat {} '
-            #                            '&& set CONDA_EXE={}'
-            #                            '&& set _CE_M='
-            #                            '&& set _CE_CONDA='
-            #                            .format(CONDA_PACKAGE_ROOT, dev_arg,
-            #                                    join(sys.prefix, "Scripts", "conda.exe")),
             "init_command": (
-                '@SET "CONDA_SHLVL=" '
-                f"&& @CALL {CONDA_PACKAGE_ROOT}\\shell\\condabin\\conda_hook.bat {dev_arg} "
+                f"@CALL {CONDA_PACKAGE_ROOT}\\shell\\condabin\\conda_hook.bat {dev_arg} "
                 f'&& @SET "CONDA_EXE={sys.executable}" '
                 '&& @SET "_CE_M=-m" '
                 '&& @SET "_CE_CONDA=conda"'
             ),
-            "print_env_var": "@ECHO %%%s%%",
+            "print_env_var": "@ECHO %{0}%",
+            "print_prompt": "@ECHO %PROMPT%",
+            "print_status": "echo %ERRORLEVEL%",
         },
         "csh": {
             "activator": "csh",
@@ -2309,28 +2297,37 @@ class InteractiveShell:
                 f'set _CONDA_EXE="{CONDA_PACKAGE_ROOT}/shell/bin/conda"; '
                 f"source {CONDA_PACKAGE_ROOT}/shell/etc/profile.d/conda.csh; "
             ),
-            "print_env_var": 'echo "$%s"',
+            "print_env_var": 'echo "${0}"',
+            "print_prompt": 'echo "$prompt"',
+            "print_status": "echo $?",
         },
-        "tcsh": {
-            "base_shell": "csh",
-        },
+        "tcsh": {"base_shell": "csh"},
         "fish": {
             "activator": "fish",
-            "init_command": f"eval ({EXE} -m conda shell.fish hook {dev_arg})",
-            "print_env_var": "echo $%s",
+            "init_command": f"eval ({exe} -m conda shell.fish hook {dev_arg})",
+            "print_env_var": "echo ${0}",
+            "print_prompt": "fish_prompt",
+            "print_status": "echo $status",
         },
         # We don't know if the PowerShell executable is called
         # powershell, pwsh, or pwsh-preview.
         "powershell": {
             "activator": "powershell",
             "args": ("-NoProfile", "-NoLogo"),
-            "init_command": f"{sys.executable} -m conda shell.powershell hook --dev | Out-String | Invoke-Expression",
-            "print_env_var": "$Env:%s",
+            "init_command": (
+                f"{sys.executable} -m conda shell.powershell hook --dev "
+                "| Out-String "
+                "| Invoke-Expression"
+            ),
+            "print_env_var": "$Env:{0}",
+            "print_prompt": "prompt",
+            "print_status": "echo $LASTEXITCODE",
             "exit_cmd": "exit",
         },
         "pwsh": {"base_shell": "powershell"},
         "pwsh-preview": {"base_shell": "powershell"},
     }
+    del exe
 
     def __init__(
         self,
@@ -2340,6 +2337,8 @@ class InteractiveShell:
         args: Iterable[str] = (),
         init_command: str,
         print_env_var: str,
+        print_prompt: str,
+        print_status: str,
         exit_cmd: str | None = None,
         base_shell: str | None = None,  # ignored
     ):
@@ -2350,6 +2349,8 @@ class InteractiveShell:
         self.args = args
         self.init_command = init_command
         self.print_env_var = print_env_var
+        self.print_prompt = print_prompt
+        self.print_status = print_status
         self.exit_cmd = exit_cmd
 
     @classmethod
@@ -2367,7 +2368,7 @@ class InteractiveShell:
 
         self.p = PopenSpawn(
             self.shell_exe,
-            timeout=30,
+            timeout=10,
             maxread=5000,
             searchwindowsize=None,
             logfile=sys.stdout,
@@ -2375,10 +2376,12 @@ class InteractiveShell:
             env={
                 **os.environ,
                 "CONDA_AUTO_ACTIVATE_BASE": "false",
+                "CONDA_AUTO_STACK": "0",
                 "CONDA_CHANGEPS1": "true",
-                "PYTHONPATH": self.activator.path_conversion(CONDA_SOURCE_ROOT),
+                # "CONDA_ENV_PROMPT": "({default_env}) ",
+                "PYTHONPATH": self.convert(CONDA_SOURCE_ROOT),
                 "PATH": self.activator.pathsep_join(
-                    self.activator.path_conversion(
+                    self.convert(
                         (
                             *self.activator._get_starting_path_list(),
                             dirname(which(self.shell_name)),
@@ -2395,11 +2398,22 @@ class InteractiveShell:
 
         if self.init_command:
             self.sendline(self.init_command)
+
+        self.sendline("conda deactivate")
+        self.sendline("conda deactivate")
+        self.sendline("conda deactivate")
+        self.sendline("conda deactivate")
+        self.clear()
+
+        # canonical values
+        self.PATH0 = self.get_PATH()
+        self.PS1 = escape(self.get_prompt())
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
-            print(f"Exception encountered: {exc_val}", file=sys.stderr)
+            print(f"Exception encountered: ({exc_type}) {exc_val}", file=sys.stderr)
 
         if self.p:
             if self.exit_cmd:
@@ -2425,35 +2439,85 @@ class InteractiveShell:
             print(f"{self.p.after=}", file=sys.stderr)
             raise
 
+    def assert_var(
+        self, name: str, exact: str | None = None, *, regex: str | None = None
+    ):
+        if (exact is None) is (regex is None):
+            raise TypeError("either exact or regex must be specified")
+        elif exact is not None:
+            self.assert_env_var(name, exact, use_exact=True)
+        else:
+            self.assert_env_var(name, regex)
+
     def assert_env_var(self, env_var, value, use_exact=False):
-        # value is actually a regex
-        self.sendline(self.print_env_var % env_var)
+        self.sendline(self.print_env_var.format(env_var))
         if use_exact:
             self.expect_exact(value)
             self.clear()
         else:
-            self.expect(f"{value}\r?\n")
+            self.expect(rf"{value}\r?\n")
 
     def get_env_var(self, env_var, default=None):
-        if self.shell_name == "cmd.exe":
-            self.sendline(self.print_env_var % env_var)
-            self.expect(rf"@ECHO %{env_var}%\r\n([^\r\n]*)\r\n")
-        elif self.shell_name in ("powershell", "pwsh"):
-            self.sendline(self.print_env_var % env_var)
-            self.expect(rf"\$Env:{env_var}\r?\n([^\r\n]*)\r?\n")
-        else:
-            self.sendline(f"echo {env_var}=")
-            self.sendline(self.print_env_var % env_var)
-            self.expect(rf"{env_var}=\n([^\n]*)\n")
-
+        marker = f"get_env_var-{uuid4().hex}"
+        self.sendline(self.print_env_var.format(env_var))
+        self.sendline(f"echo {marker}")
+        self.expect(rf"([^\r\n]*)\r?\n{marker}\r?\n")
         value = self.p.match.group(1)
-        return default if value is None else ensure_text_type(value).strip()
+        return default if value is None else value
 
-    def clear(self):
-        self.expect(r"(?s).*")
+    def export_var(self, name: str, value: str):
+        return self.sendline(self.activator.export_var_tmpl % (name, value))
+
+    def get_PATH(self) -> tuple[str, ...]:
+        path = self.get_env_var("PATH")
+        if not path:
+            return ()
+        return self.convert(path.split(self.activator.pathsep))
+
+    def get_prompt(self) -> str:
+        marker = f"get_prompt-{uuid4().hex}"
+        self.sendline(self.print_prompt)
+        self.sendline(f"echo {marker}")
+        self.expect(rf"([^\r\n]*)\r?\n{marker}\r?\n")
+        return self.p.match.group(1)
+
+    def get_status(self) -> str:
+        marker = f"get_status-{uuid4().hex}"
+        self.sendline(self.print_status)
+        self.sendline(f"echo {marker}")
+        self.expect(rf"([^\r\n]*)\r?\n{marker}\r?\n")
+        return self.p.match.group(1)
+
+    def clear(self) -> None:
+        marker = f"clear-{uuid4().hex}"
+        self.sendline(f"echo {marker}")
+        self.expect(rf"{marker}\r?\n")
+
+    @overload
+    def convert(self, paths: str) -> str:
+        ...
+
+    @overload
+    def convert(self, paths: tuple[str, ...]) -> tuple[str, ...]:
+        ...
+
+    @overload
+    def convert(self, paths: None) -> None:
+        ...
+
+    def convert(self, paths):
+        paths = self.activator.path_conversion(paths)
+        if not on_win:
+            return paths
+        elif not paths:
+            return None
+        elif isinstance(paths, str):
+            return paths.lower()
+        else:
+            return tuple(map(str.lower, paths))
 
 
-def which_powershell():
+def which_powershell() -> str | None:
     r"""
     Since we don't know whether PowerShell is installed as powershell, pwsh, or pwsh-preview,
     it's helpful to have a utility function that returns the name of the best PowerShell
@@ -2463,18 +2527,16 @@ def which_powershell():
     found and a path to its main executable.
     E.g.: ('pwsh', r'C:\Program Files\PowerShell\6.0.2\pwsh.exe)
     """
-    if on_win:
-        posh = which("powershell.exe")
-        if posh:
-            return "powershell", posh
+    if on_win and which("powershell.exe"):
+        return "powershell"
 
-    posh = which("pwsh")
-    if posh:
-        return "pwsh", posh
+    if which("pwsh"):
+        return "pwsh"
 
-    posh = which("pwsh-preview")
-    if posh:
-        return "pwsh-preview", posh
+    if which("pwsh-preview"):
+        return "pwsh-preview"
+
+    return None
 
 
 @pytest.fixture
@@ -2499,233 +2561,9 @@ def test_envs(path_factory: PathFactoryFixture) -> tuple[str, str, str]:
     yield str(prefix), str(prefix2), str(prefix3)
 
 
-def basic_posix(shell, prefix, prefix2, prefix3):
-    if shell.shell_name in ("zsh", "dash"):
-        conda_is_a_function = "conda is a shell function"
-    else:
-        conda_is_a_function = "conda is a function"
-
-    activate = f" activate {dev_arg} "
-    deactivate = f" deactivate {dev_arg} "
-    install = f" install {dev_arg} "
-
-    activator = PosixActivator()
-    num_paths_added = len(tuple(activator._get_path_dirs(prefix)))
-    prefix_p = activator.path_conversion(prefix)
-    prefix2_p = activator.path_conversion(prefix2)
-    activator.path_conversion(prefix3)
-
-    PATH0 = shell.get_env_var("PATH", "")
-    assert any(path.endswith("condabin") for path in PATH0.split(":"))
-
-    # calling bash -l, as we do for MSYS2, may cause conda activation.
-    shell.sendline("conda deactivate")
-    shell.sendline("conda deactivate")
-    shell.sendline("conda deactivate")
-    shell.sendline("conda deactivate")
-    shell.clear()
-
-    shell.assert_env_var("CONDA_SHLVL", "0")
-    PATH0 = shell.get_env_var("PATH", "")
-    assert len([path for path in PATH0.split(":") if path.endswith("condabin")]) > 0
-    # Remove sys.prefix from PATH. It interferes with path entry count tests.
-    # We can no longer check this since we'll replace e.g. between 1 and N path
-    # entries with N of them in _replace_prefix_in_path() now. It is debatable
-    # whether it should be here at all too.
-    if PATH0.startswith(activator.path_conversion(sys.prefix) + ":"):
-        PATH0 = PATH0[len(activator.path_conversion(sys.prefix)) + 1 :]
-        shell.sendline(f'export PATH="{PATH0}"')
-        PATH0 = shell.get_env_var("PATH", "")
-    shell.sendline("type conda")
-    shell.expect(conda_is_a_function)
-
-    _CE_M = shell.get_env_var("_CE_M")
-    _CE_CONDA = shell.get_env_var("_CE_CONDA")
-
-    shell.sendline("conda --version")
-    shell.expect_exact(f"conda {conda_version}")
-
-    shell.sendline(f"conda {activate} base")
-
-    shell.sendline("type conda")
-    shell.expect(conda_is_a_function)
-
-    CONDA_EXE2 = shell.get_env_var("CONDA_EXE")
-    _CE_M2 = shell.get_env_var("_CE_M")
-
-    shell.assert_env_var("PS1", "(base).*")
-    shell.assert_env_var("CONDA_SHLVL", "1")
-    PATH1 = shell.get_env_var("PATH", "")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH1.split(":"))
-
-    CONDA_EXE = shell.get_env_var("CONDA_EXE")
-    _CE_M = shell.get_env_var("_CE_M")
-    _CE_CONDA = shell.get_env_var("_CE_CONDA")
-
-    log.debug("activating ..")
-    shell.sendline(f'conda {activate} "{prefix_p}"')
-
-    shell.sendline("type conda")
-    shell.expect(conda_is_a_function)
-
-    CONDA_EXE2 = shell.get_env_var("CONDA_EXE")
-    _CE_M2 = shell.get_env_var("_CE_M")
-    _CE_CONDA2 = shell.get_env_var("_CE_CONDA")
-    assert CONDA_EXE == CONDA_EXE2
-    assert _CE_M2 == _CE_M2
-    assert _CE_CONDA == _CE_CONDA2
-
-    shell.sendline("env | sort")
-    # When CONDA_SHLVL==2 fails it usually means that conda activate failed. We that fails it is
-    # usually because you forgot to pass `--dev` to the *previous* activate so CONDA_EXE changed
-    # from python to conda, which is then found on PATH instead of using the dev sources. When it
-    # goes to use this old conda to generate the activation script for the newly activated env.
-    # it is running the old code (or at best, a mix of new code and old scripts).
-    shell.assert_env_var("CONDA_SHLVL", "2")
-    CONDA_PREFIX = shell.get_env_var("CONDA_PREFIX", "")
-    # We get C: vs c: differences on Windows.
-    # Also, self.prefix instead of prefix_p is deliberate (maybe unfortunate?)
-    assert CONDA_PREFIX.lower() == prefix.lower()
-    PATH2 = shell.get_env_var("PATH", "")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH2.split(":"))
-
-    shell.sendline("env | sort | grep CONDA")
-    shell.expect("CONDA_")
-    shell.sendline('echo "PATH=$PATH"')
-    shell.expect("PATH=")
-    shell.sendline(f'conda {activate} "{prefix2_p}"')
-    shell.sendline("env | sort | grep CONDA")
-    shell.expect("CONDA_")
-    shell.sendline('echo "PATH=$PATH"')
-    shell.expect("PATH=")
-    shell.assert_env_var("PS1", "(charizard).*")
-    shell.assert_env_var("CONDA_SHLVL", "3")
-    PATH3 = shell.get_env_var("PATH")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH3.split(":"))
-
-    CONDA_EXE2 = shell.get_env_var("CONDA_EXE")
-    _CE_M2 = shell.get_env_var("_CE_M")
-    _CE_CONDA2 = shell.get_env_var("_CE_CONDA")
-    assert CONDA_EXE == CONDA_EXE2
-    assert _CE_M2 == _CE_M2
-    assert _CE_CONDA == _CE_CONDA2
-
-    shell.sendline(f"conda {install} --yes --quiet hdf5={HDF5_VERSION}")
-    shell.expect(
-        r"Executing transaction: \.\.\.working\.\.\. done.*\n",
-        timeout=120,
-    )
-    shell.assert_env_var("?", "0", use_exact=True)
-
-    shell.sendline("h5stat --version")
-    shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
-
-    # TODO: assert that reactivate worked correctly
-
-    shell.sendline("type conda")
-    shell.expect(conda_is_a_function)
-
-    shell.sendline(f"conda run {dev_arg} h5stat --version")
-    shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
-
-    # regression test for #6840
-    shell.sendline(f"conda {install} --blah")
-    shell.assert_env_var("?", "2", use_exact=True)
-    shell.sendline("conda list --blah")
-    shell.assert_env_var("?", "2", use_exact=True)
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "2")
-    PATH = shell.get_env_var("PATH")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH.split(":"))
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "1")
-    PATH = shell.get_env_var("PATH")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH.split(":"))
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "0")
-    PATH = shell.get_env_var("PATH")
-    assert len(PATH0.split(":")) == len(PATH.split(":"))
-    if on_win:
-        assert PATH0.lower() == PATH.lower()
-    else:
-        assert PATH0 == PATH
-
-    shell.sendline(shell.print_env_var % "PS1")
-    shell.clear()
-    assert "CONDA_PROMPT_MODIFIER" not in str(shell.p.after)
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "0")
-
-    # When fully deactivated, CONDA_EXE, _CE_M and _CE_CONDA must be retained
-    # because the conda shell scripts use them and if they are unset activation
-    # is not possible.
-    CONDA_EXED = shell.get_env_var("CONDA_EXE")
-    assert CONDA_EXED
-
-    PATH0 = shell.get_env_var("PATH")
-
-    shell.sendline(f'conda {activate} "{prefix2_p}"')
-    shell.assert_env_var("CONDA_SHLVL", "1")
-    PATH1 = shell.get_env_var("PATH")
-    assert len(PATH0.split(":")) + num_paths_added == len(PATH1.split(":"))
-
-    shell.sendline(f'conda {activate} "{prefix3}" --stack')
-    shell.assert_env_var("CONDA_SHLVL", "2")
-    PATH2 = shell.get_env_var("PATH")
-    assert "charizard" in PATH2
-    assert "venusaur" in PATH2
-    assert len(PATH0.split(":")) + num_paths_added * 2 == len(PATH2.split(":"))
-
-    shell.sendline(f'conda {activate} "{prefix_p}"')
-    shell.assert_env_var("CONDA_SHLVL", "3")
-    PATH3 = shell.get_env_var("PATH")
-    assert "charizard" in PATH3
-    assert "venusaur" not in PATH3
-    assert len(PATH0.split(":")) + num_paths_added * 2 == len(PATH3.split(":"))
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "2")
-    PATH4 = shell.get_env_var("PATH")
-    assert "charizard" in PATH4
-    assert "venusaur" in PATH4
-    if on_win:
-        assert PATH4.lower() == PATH2.lower()
-    else:
-        assert PATH4 == PATH2
-
-    shell.sendline(f"conda {deactivate}")
-    shell.assert_env_var("CONDA_SHLVL", "1")
-    PATH5 = shell.get_env_var("PATH")
-    if on_win:
-        assert PATH1.lower() == PATH5.lower()
-    else:
-        assert PATH1 == PATH5
-
-    # Test auto_stack
-    shell.sendline("conda config --env --set auto_stack 1")
-
-    shell.sendline(f'conda {activate} "{prefix3}"')
-    shell.assert_env_var("CONDA_SHLVL", "2")
-    PATH2 = shell.get_env_var("PATH")
-    assert "charizard" in PATH2
-    assert "venusaur" in PATH2
-    assert len(PATH0.split(":")) + num_paths_added * 2 == len(PATH2.split(":"))
-
-    shell.sendline(f'conda {activate} "{prefix_p}"')
-    shell.assert_env_var("CONDA_SHLVL", "3")
-    PATH3 = shell.get_env_var("PATH")
-    assert "charizard" in PATH3
-    assert "venusaur" not in PATH3
-    assert len(PATH0.split(":")) + num_paths_added * 2 == len(PATH3.split(":"))
-
-
 def basic_csh(shell, prefix, prefix2, prefix3):
     shell.sendline("conda --version")
-    shell.expect_exact("conda " + conda_version)
+    shell.expect_exact(f"conda {CONDA_VERSION}")
     shell.assert_env_var("CONDA_SHLVL", "0")
     shell.sendline("conda activate base")
     shell.assert_env_var("prompt", "(base).*")
@@ -2746,19 +2584,23 @@ def basic_csh(shell, prefix, prefix2, prefix3):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "shell",
+    "shell_name",
     [
         pytest.param(
             "bash",
-            marks=pytest.mark.skipif(
-                bash_unsupported(), reason=bash_unsupported_because()
-            ),
+            marks=[
+                pytest.mark.skipif(
+                    bash_unsupported(), reason=bash_unsupported_because()
+                )
+            ],
         ),
         pytest.param(
             "dash",
-            marks=pytest.mark.skipif(
-                not which("dash") or on_win, reason="dash not installed"
-            ),
+            marks=[
+                pytest.mark.skipif(
+                    not which("dash") or on_win, reason="dash not installed"
+                )
+            ],
         ),
         pytest.param(
             "zsh",
@@ -2773,13 +2615,220 @@ def basic_csh(shell, prefix, prefix2, prefix3):
                 ),
             ],
         ),
+        pytest.param(
+            which_powershell(),
+            marks=[
+                pytest.mark.skipif(
+                    not which_powershell(), reason="PowerShell not installed"
+                )
+            ],
+        ),
     ],
 )
-def test_posix_basic_integration(
-    reset_environ: None, test_envs: tuple[str, str, str], shell: str
-):
-    with InteractiveShell.from_name(shell) as sh:
-        basic_posix(sh, *test_envs)
+def test_basic_integration(test_envs: tuple[str, str, str], shell_name: str):
+    def init() -> bool:
+        # check conda executable itself
+        if shell.shell_name in ("zsh", "dash"):
+            shell.sendline("type conda")
+            shell.expect("conda is a shell function")
+        elif shell.shell_name in ("powershell", "pwsh", "pwsh-preview"):
+            shell.sendline("(Get-Command -Name conda).CommandType")
+            shell.expect("Function")
+        else:
+            shell.sendline("type conda")
+            shell.expect("conda is a function")
+
+        # check conda version
+        shell.sendline("conda --version")
+        shell.expect_exact(f"conda {CONDA_VERSION}")
+
+        # ensure the conda environment variables are set
+        assert shell.convert(shell.get_env_var("CONDA_EXE")) == CONDA_EXE0
+        assert shell.get_env_var("_CE_M") == _CE_M0
+        assert shell.get_env_var("_CE_CONDA") == _CE_CONDA0
+        return True
+
+    def prefixes(
+        PATH: tuple[str, ...] | None = None,
+        *,
+        base: bool = False,
+        prefix: bool = False,
+        prefix2: bool = False,
+        prefix3: bool = False,
+    ) -> bool:
+        PATH = PATH or shell.get_PATH()
+        assert len(PATH) == len(shell.PATH0) + (
+            (base + prefix + prefix2 + prefix3) * num_prefixes
+        )
+        assert f"{ubase}/condabin" in PATH  # always true
+        assert (f"{ubase}/bin" in PATH) is base
+        assert (f"{uprefix}/bin" in PATH) is prefix
+        assert (f"{uprefix2}/bin" in PATH) is prefix2
+        assert (f"{uprefix3}/bin" in PATH) is prefix3
+        return True
+
+    with InteractiveShell.from_name(shell_name) as shell:
+        base = sys.prefix
+        prefix, prefix2, prefix3 = test_envs
+        ubase = shell.convert(base)
+        uprefix = shell.convert(prefix)
+        uprefix2 = shell.convert(prefix2)
+        uprefix3 = shell.convert(prefix3)
+
+        num_prefixes = len(tuple(shell.activator._get_path_dirs(prefix)))
+
+        # fully deactivated
+        log.debug("inspect shell...")
+        # init case, CONDA_EXE=sys.executable _CE_M='-m' _CE_CONDA='conda'
+        CONDA_EXE0 = shell.convert(shell.get_env_var("CONDA_EXE"))
+        _CE_M0 = shell.get_env_var("_CE_M")
+        _CE_CONDA0 = shell.get_env_var("_CE_CONDA")
+        assert init()
+        assert shell.get_prompt() == shell.PS1
+        assert shell.get_env_var("CONDA_SHLVL") == "0"
+        assert shell.get_env_var("CONDA_PREFIX") == ""
+        assert prefixes()
+
+        # activate base
+        log.debug("activating base...")
+        shell.sendline(f"conda activate {dev_arg} base")
+        # overriding, CONDA_EXE='/path/to/conda' _CE_M='' _CE_CONDA=''
+        CONDA_EXE0 = shell.convert(shell.get_env_var("CONDA_EXE"))
+        _CE_M0 = shell.get_env_var("_CE_M")
+        _CE_CONDA0 = shell.get_env_var("_CE_CONDA")
+        assert init()
+        assert shell.get_prompt() == f"(base) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "1"
+        assert shell.get_env_var("CONDA_PREFIX") == base
+        assert prefixes(PATH1 := shell.get_PATH(), base=True)
+
+        # activate prefix
+        log.debug("activating prefix...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix}"')
+        assert init()
+        assert shell.get_prompt() == f"({prefix}) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "2"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix
+        assert prefixes(PATH2 := shell.get_PATH(), prefix=True)
+
+        # activate prefix2
+        log.debug("activating prefix2...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix2}"')
+        assert init()
+        assert shell.get_prompt() == f"(charizard) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "3"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix2
+        assert prefixes(prefix2=True)
+
+        # install curl and check version (inline and with `conda run`)
+        shell.sendline(f"conda install {dev_arg} --yes --quiet curl={CURL_VERSION}")
+        shell.expect(
+            r"Executing transaction: \.\.\.working\.\.\. done.*\n",
+            timeout=120,
+        )
+        assert shell.get_status() == "0"
+        assert init()
+
+        shell.sendline("curl --version")
+        shell.expect(rf"curl {CURL_VERSION}.*")
+        shell.sendline(f"conda run {dev_arg} curl --version")
+        shell.expect(rf"curl {CURL_VERSION}.*")
+
+        # regression test for #6840
+        shell.sendline(f"conda install {dev_arg} --blah")
+        assert shell.get_status() == "2"
+        shell.sendline("conda list --blah")
+        assert shell.get_status() == "2"
+
+        # deactivate
+        log.debug("deactivating...")
+        shell.sendline(f"conda deactivate {dev_arg}")
+        assert init()
+        assert shell.get_prompt() == f"({prefix}) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "2"
+        assert shell.get_PATH() == PATH2
+
+        # deactivate
+        log.debug("deactivating...")
+        shell.sendline(f"conda deactivate {dev_arg}")
+        assert init()
+        assert shell.get_prompt() == f"(base) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "1"
+        assert shell.get_PATH() == PATH1
+
+        # deactivate
+        log.debug("deactivating...")
+        shell.sendline(f"conda deactivate {dev_arg}")
+        assert init()
+        assert shell.get_prompt() == f"{shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "0"
+        assert shell.get_PATH() == shell.PATH0
+
+        # activate prefix2
+        log.debug("activating prefix2...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix2}"')
+        assert init()
+        assert shell.get_prompt() == f"(charizard) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "1"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix2
+        assert prefixes(PATH3 := shell.get_PATH(), prefix2=True)
+
+        # stack prefix3
+        log.debug("stacking prefix3...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix3}" --stack')
+        assert init()
+        assert shell.get_prompt() == f"(venusaur) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "2"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix3
+        assert prefixes(PATH4 := shell.get_PATH(), prefix2=True, prefix3=True)
+
+        # activate prefix
+        log.debug("activating prefix...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix}"')
+        assert init()
+        assert shell.get_prompt() == f"({prefix}) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "3"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix
+        assert prefixes(prefix=True, prefix2=True)
+
+        # deactivate
+        log.debug("deactivating...")
+        shell.sendline(f"conda deactivate {dev_arg}")
+        assert init()
+        assert shell.get_prompt() == f"(venusaur) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "2"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix3
+        assert shell.get_PATH() == PATH4
+
+        # deactivate
+        log.debug("deactivating...")
+        shell.sendline(f"conda deactivate {dev_arg}")
+        assert init()
+        assert shell.get_prompt() == f"(charizard) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "1"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix2
+        assert shell.get_PATH() == PATH3
+
+        # enable auto stacking
+        shell.export_var("CONDA_AUTO_STACK", "1")
+
+        # activate prefix3
+        log.debug("activating prefix3...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix3}"')
+        assert init()
+        assert shell.get_prompt() == f"(venusaur) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "2"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix3
+        assert prefixes(prefix2=True, prefix3=True)
+
+        # activate prefix
+        log.debug("activating prefix...")
+        shell.sendline(f'conda activate {dev_arg} "{uprefix}"')
+        assert init()
+        assert shell.get_prompt() == f"({prefix}) {shell.PS1}"
+        assert shell.get_env_var("CONDA_SHLVL") == "3"
+        assert shell.get_env_var("CONDA_PREFIX") == prefix
+        assert prefixes(prefix=True, prefix2=True)
 
 
 @pytest.mark.integration
@@ -2806,9 +2855,7 @@ def test_posix_basic_integration(
         ),
     ],
 )
-def test_csh_basic_integration(
-    reset_environ: None, test_envs: tuple[str, str, str], shell: str
-):
+def test_csh_basic_integration(test_envs: tuple[str, str, str], shell: str):
     with InteractiveShell.from_name(shell) as sh:
         basic_csh(sh, *test_envs)
 
@@ -2835,79 +2882,10 @@ def test_fish_basic_integration(test_envs: tuple[str, str, str]):
         shell.sendline("conda deactivate")
         shell.assert_env_var("CONDA_SHLVL", "0")
 
-        shell.sendline(shell.print_env_var % "PS1")
+        shell.get_env_var("PS1", "")
         shell.clear()
         assert "CONDA_PROMPT_MODIFIER" not in str(shell.p.after)
 
-        shell.sendline("conda deactivate")
-        shell.assert_env_var("CONDA_SHLVL", "0")
-
-
-@pytest.mark.skipif(not which_powershell(), reason="PowerShell not installed")
-@pytest.mark.integration
-def test_powershell_basic_integration(test_envs: tuple[str, str, str]):
-    prefix, charizard, venusaur = test_envs
-
-    posh_kind, posh_path = which_powershell()
-    print(f"## [PowerShell integration] Using {posh_path}.")
-    with InteractiveShell.from_name(posh_kind) as shell:
-        print("## [PowerShell integration] Starting test.")
-        shell.sendline("(Get-Command conda).CommandType")
-        shell.expect_exact("Alias")
-        shell.sendline("(Get-Command conda).Definition")
-        shell.expect_exact("Invoke-Conda")
-        shell.sendline("(Get-Command Invoke-Conda).Definition")
-
-        # deactivate and clear
-        shell.sendline("conda deactivate")
-        shell.sendline("conda deactivate")
-        shell.sendline("conda deactivate")
-        shell.sendline("conda deactivate")
-        shell.clear()
-
-        print("## [PowerShell integration] Activating.")
-        shell.sendline(f'conda activate "{charizard}"')
-        shell.assert_env_var("CONDA_SHLVL", "1")
-        PATH = shell.get_env_var("PATH")
-        assert "charizard" in PATH
-        shell.sendline("conda --version")
-        shell.expect_exact(f"conda {conda_version}")
-        shell.sendline(f'conda activate "{prefix}"')
-        shell.assert_env_var("CONDA_SHLVL", "2")
-        shell.assert_env_var("CONDA_PREFIX", prefix, True)
-
-        shell.sendline("conda deactivate")
-        PATH = shell.get_env_var("PATH")
-        assert "charizard" in PATH
-        shell.sendline(f'conda activate -stack "{venusaur}"')
-        PATH = shell.get_env_var("PATH")
-        assert "venusaur" in PATH
-        assert "charizard" in PATH
-
-        print("## [PowerShell integration] Installing.")
-        shell.sendline(f"conda install -yq hdf5={HDF5_VERSION}")
-        shell.expect(
-            r"Executing transaction: \.\.\.working\.\.\. done.*\n",
-            timeout=100,
-        )
-        shell.sendline("$LASTEXITCODE")
-        shell.expect("0")
-        # TODO: assert that reactivate worked correctly
-
-        print("## [PowerShell integration] Checking installed version.")
-        shell.sendline("h5stat --version")
-        shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
-
-        # conda run integration test
-        print("## [PowerShell integration] Checking conda run.")
-        shell.sendline(f"conda run {dev_arg} h5stat --version")
-        shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
-
-        print("## [PowerShell integration] Deactivating")
-        shell.sendline("conda deactivate")
-        shell.assert_env_var("CONDA_SHLVL", "1")
-        shell.sendline("conda deactivate")
-        shell.assert_env_var("CONDA_SHLVL", "0")
         shell.sendline("conda deactivate")
         shell.assert_env_var("CONDA_SHLVL", "0")
 
@@ -2919,9 +2897,7 @@ def test_powershell_basic_integration(test_envs: tuple[str, str, str]):
 def test_powershell_PATH_management(test_envs: tuple[str, str, str]):
     prefix, _, _ = test_envs
 
-    posh_kind, posh_path = which_powershell()
-    print(f"## [PowerShell activation PATH management] Using {posh_path}.")
-    with InteractiveShell.from_name(posh_kind) as shell:
+    with InteractiveShell.from_name(which_powershell()) as shell:
         prefix = join(prefix, "envs", "test")
         print("## [PowerShell activation PATH management] Starting test.")
         shell.sendline("(Get-Command conda).CommandType")
@@ -3028,7 +3004,7 @@ def test_cmd_exe_basic_integration(
         #       not require an old or incompatible version of any
         #       library critical to the correct functioning of
         #       Python (e.g. OpenSSL).
-        shell.sendline(f"conda install --yes --quiet hdf5={HDF5_VERSION}")
+        shell.sendline(f"conda install --yes --quiet curl={CURL_VERSION}")
         shell.expect(
             r"Executing transaction: \.\.\.working\.\.\. done.*\n",
             timeout=100,
@@ -3036,12 +3012,12 @@ def test_cmd_exe_basic_integration(
         shell.assert_env_var("errorlevel", "0", True)
         # TODO: assert that reactivate worked correctly
 
-        shell.sendline("h5stat --version")
-        shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
+        shell.sendline("curl --version")
+        shell.expect(rf"curl {CURL_VERSION}.*")
 
         # conda run integration test
-        shell.sendline(f"conda run {dev_arg} h5stat --version")
-        shell.expect(rf".*h5stat: Version {HDF5_VERSION}.*")
+        shell.sendline(f"conda run {dev_arg} curl --version")
+        shell.expect(rf"curl {CURL_VERSION}.*")
 
         shell.sendline("conda deactivate --dev")
         shell.assert_env_var("CONDA_SHLVL", "1")
@@ -3117,7 +3093,7 @@ def test_legacy_activate_deactivate_bash(test_envs: tuple[str, str, str]):
         shell.expect("conda is a function")
 
         shell.sendline("conda --version")
-        shell.expect_exact("conda " + conda_version)
+        shell.expect_exact(f"conda {CONDA_VERSION}")
 
         shell.sendline(
             f'source "${{_CONDA_ROOT}}/bin/activate" {dev_arg} "{prefix3_p}"'
@@ -3162,7 +3138,7 @@ def test_legacy_activate_deactivate_cmd_exe(test_envs: tuple[str, str, str]):
         assert conda__ce_conda == "conda"
 
         shell.sendline("conda --version")
-        shell.expect_exact("conda " + conda_version)
+        shell.expect_exact(f"conda {CONDA_VERSION}")
 
         shell.sendline('activate.bat --dev "%s"' % prefix3)
         PATH = shell.get_env_var("PATH")

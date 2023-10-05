@@ -28,6 +28,7 @@ from os.path import (
 )
 from pathlib import Path
 from textwrap import dedent
+from typing import overload
 
 # Since we have to have configuration context here, anything imported by
 #   conda.base.context is fair game, but nothing more.
@@ -66,11 +67,12 @@ class _Activator(metaclass=abc.ABCMeta):
     # information to the __init__ method of this class.
 
     # The following instance variables must be defined by each implementation.
-    pathsep_join: str
+    pathsep: str
+    pathsep_join: Callable[[Iterable[str]], str]
     sep: str
-    path_conversion: Callable[
-        [str | Iterable[str] | None], str | tuple[str, ...] | None
-    ]
+    path_conversion: Callable[[str], str] | Callable[
+        [tuple[str, ...]], tuple[str, ...]
+    ] | Callable[[None], None]
     script_extension: str
     #: temporary file's extension, None writes to stdout instead
     tempfile_extension: str | None
@@ -298,6 +300,7 @@ class _Activator(metaclass=abc.ABCMeta):
             if no_stack_idx >= 0:
                 self.stack = False
                 del remainder_args[no_stack_idx]
+
             if len(remainder_args) > 1:
                 from .exceptions import ArgumentError
 
@@ -585,7 +588,7 @@ class _Activator(metaclass=abc.ABCMeta):
             "activate_scripts": self._get_activate_scripts(conda_prefix),
         }
 
-    def _get_starting_path_list(self):
+    def _get_starting_path_list(self) -> tuple[str, ...]:
         # For isolation, running the conda test suite *without* env. var. inheritance
         # every so often is a good idea. We should probably make this a pytest fixture
         # along with one that tests both hardlink-only and copy-only, but before that
@@ -594,17 +597,19 @@ class _Activator(metaclass=abc.ABCMeta):
             "darwin": "/usr/bin:/bin:/usr/sbin:/sbin",
             # You may think 'let us do something more clever here and interpolate
             # `%windir%`' but the point here is the the whole env. is cleaned out
-            "win32": "C:\\Windows\\system32;"
-            "C:\\Windows;"
-            "C:\\Windows\\System32\\Wbem;"
-            "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\",
+            "win32": (
+                "C:\\Windows\\system32;"
+                "C:\\Windows;"
+                "C:\\Windows\\System32\\Wbem;"
+                "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+            ),
         }
-        path = self.environ.get(
-            "PATH",
-            clean_paths[sys.platform] if sys.platform in clean_paths else "/usr/bin",
+        return tuple(
+            self.environ.get(
+                "PATH",
+                clean_paths.get(sys.platform, "/usr/bin"),
+            ).split(os.pathsep)
         )
-        path_split = path.split(os.pathsep)
-        return path_split
 
     def _get_path_dirs(self, prefix, extra_library_bin=False):
         if on_win:  # pragma: unix no cover
@@ -823,9 +828,22 @@ def ensure_fs_path_encoding(value):
         return value
 
 
-def native_path_to_unix(
-    paths: str | Iterable[str] | None,
-) -> str | tuple[str, ...] | None:
+@overload
+def native_path_to_unix(paths: str) -> str:
+    ...
+
+
+@overload
+def native_path_to_unix(paths: tuple[str, ...]) -> tuple[str, ...]:
+    ...
+
+
+@overload
+def native_path_to_unix(paths: None) -> None:
+    ...
+
+
+def native_path_to_unix(paths):
     if paths is None:
         return None
     elif not on_win:
@@ -885,7 +903,22 @@ def native_path_to_unix(
     return unix_path[0] if isinstance(paths, str) else tuple(unix_path)
 
 
-def path_identity(paths: str | Iterable[str] | None) -> str | tuple[str, ...] | None:
+@overload
+def path_identity(paths: str) -> str:
+    ...
+
+
+@overload
+def path_identity(paths: tuple[str, ...]) -> tuple[str, ...]:
+    ...
+
+
+@overload
+def path_identity(paths: None) -> None:
+    ...
+
+
+def path_identity(paths):
     if paths is None:
         return None
     elif isinstance(paths, str):
@@ -894,9 +927,22 @@ def path_identity(paths: str | Iterable[str] | None) -> str | tuple[str, ...] | 
         return tuple(os.path.normpath(path) for path in paths)
 
 
-def backslash_to_forwardslash(
-    paths: str | Iterable[str] | None,
-) -> str | tuple[str, ...] | None:
+@overload
+def backslash_to_forwardslash(paths: str) -> str:
+    ...
+
+
+@overload
+def backslash_to_forwardslash(paths: tuple[str, ...]) -> tuple[str, ...]:
+    ...
+
+
+@overload
+def backslash_to_forwardslash(paths: None) -> None:
+    ...
+
+
+def backslash_to_forwardslash(paths):
     if paths is None:
         return None
     elif isinstance(paths, str):
@@ -906,7 +952,8 @@ def backslash_to_forwardslash(
 
 
 class PosixActivator(_Activator):
-    pathsep_join = ":".join
+    pathsep = ":"
+    pathsep_join = pathsep.join
     sep = "/"
     path_conversion = staticmethod(native_path_to_unix)
     script_extension = ".sh"
@@ -959,7 +1006,8 @@ class PosixActivator(_Activator):
 
 
 class CshActivator(_Activator):
-    pathsep_join = ":".join
+    pathsep = ":"
+    pathsep_join = pathsep.join
     sep = "/"
     path_conversion = staticmethod(native_path_to_unix)
     script_extension = ".csh"
@@ -1012,7 +1060,8 @@ class CshActivator(_Activator):
 
 
 class XonshActivator(_Activator):
-    pathsep_join = ";".join if on_win else ":".join
+    pathsep = os.pathsep
+    pathsep_join = pathsep.join
     sep = "/"
     path_conversion = staticmethod(
         backslash_to_forwardslash if on_win else path_identity
@@ -1040,7 +1089,8 @@ class XonshActivator(_Activator):
 
 
 class CmdExeActivator(_Activator):
-    pathsep_join = ";".join
+    pathsep = ";"
+    pathsep_join = pathsep.join
     sep = "\\"
     path_conversion = staticmethod(path_identity)
     script_extension = ".bat"
@@ -1062,6 +1112,7 @@ class CmdExeActivator(_Activator):
 
 
 class FishActivator(_Activator):
+    pathsep = " "
     pathsep_join = '" "'.join
     sep = "/"
     path_conversion = staticmethod(native_path_to_unix)
@@ -1105,7 +1156,8 @@ class FishActivator(_Activator):
 
 
 class PowerShellActivator(_Activator):
-    pathsep_join = ";".join if on_win else ":".join
+    pathsep = os.pathsep
+    pathsep_join = pathsep.join
     sep = "\\" if on_win else "/"
     path_conversion = staticmethod(path_identity)
     script_extension = ".ps1"
@@ -1156,6 +1208,7 @@ class PowerShellActivator(_Activator):
 class JSONFormatMixin(_Activator):
     """Returns the necessary values for activation as JSON, so that tools can use them."""
 
+    pathsep = None
     pathsep_join = list
     tempfile_extension = None  # output to stdout
     command_join = list
