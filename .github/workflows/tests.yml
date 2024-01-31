@@ -376,7 +376,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
 
-    runs-on: macos-latest
+    runs-on: macos-14
     defaults:
       run:
         # https://github.com/conda-incubator/setup-miniconda#use-a-default-shell
@@ -420,6 +420,7 @@ jobs:
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
+          installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
           condarc-file: .github/condarc-${{ matrix.default-channel }}
           python-version: ${{ matrix.python-version }}
           run-post: false  # skip post cleanup
