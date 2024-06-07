@@ -54,14 +54,14 @@
 :ARGS_END
 
 :: fallback to default values
-@IF "%_PYTHON%"=="" @SET "_PYTHON=3.10"
-@IF "%_UPDATE%"=="" @SET "_UPDATE=1"
-@IF "%_DRYRUN%"=="" @SET "_DRYRUN=1"
+@IF NOT DEFINED _PYTHON @SET "_PYTHON=3.10"
+@IF NOT DEFINED _UPDATE @SET "_UPDATE=1"
+@IF NOT DEFINED _DRYRUN @SET "_DRYRUN=1"
 
 :: read devenv from ~\.condarc
-@IF "%_DEVENV%"=="" @CALL :CONDARC
+@IF NOT DEFINED _DEVENV @CALL :CONDARC
 :: fallback to devenv in source default
-@IF "%_DEVENV%"=="" @SET "_DEVENV=%_SRC%\devenv"
+@IF NOT DEFINED _DEVENV @SET "_DEVENV=%_SRC%\devenv"
 :: installer location
 @SET "_INSTALLER=%_DEVENV%"
 :: include OS
@@ -83,7 +83,7 @@
 @IF %_DRYRUN%==0 @GOTO :DRYRUN
 
 :: deactivate any prior envs
-@IF "%CONDA_SHLVL%"=="" @GOTO DEACTIVATED
+@IF NOT DEFINED CONDA_SHLVL @GOTO DEACTIVATED
 @IF %CONDA_SHLVL%==0 @GOTO DEACTIVATED
 @ECHO Deactivating %CONDA_SHLVL% environment(s)...
 :DEACTIVATING

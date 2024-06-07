@@ -2,7 +2,7 @@
 :: SPDX-License-Identifier: BSD-3-Clause
 :: Helper routine for activation, deactivation, and reactivation.
 
-@IF "%CONDA_PS1_BACKUP%"=="" GOTO :FIXUP43
+@IF NOT DEFINED CONDA_PS1_BACKUP @GOTO :FIXUP43
     :: Handle transition from shell activated with conda 4.3 to a subsequent activation
     :: after conda updated to 4.4. See issue #6173.
     @SET "PROMPT=%CONDA_PS1_BACKUP%"
@@ -33,10 +33,13 @@
 @FOR /F %%i IN (%UNIQUE%) DO @SET _TEMP_SCRIPT_PATH=%%i
 @RMDIR /S /Q %UNIQUE_DIR%
 @FOR /F "delims=" %%A IN (""!_TEMP_SCRIPT_PATH!"") DO @ENDLOCAL & @SET _TEMP_SCRIPT_PATH=%%~A
-@IF "%_TEMP_SCRIPT_PATH%" == "" @EXIT /B 1
-@IF NOT "%CONDA_PROMPT_MODIFIER%" == "" @CALL SET "PROMPT=%%PROMPT:%CONDA_PROMPT_MODIFIER%=%_empty_not_set_%%%"
+@IF NOT DEFINED _TEMP_SCRIPT_PATH @EXIT /B 1
+@IF DEFINED CONDA_PROMPT_MODIFIER @CALL SET "PROMPT=%%PROMPT:%CONDA_PROMPT_MODIFIER%=%_empty_not_set_%%%"
 @CALL "%_TEMP_SCRIPT_PATH%"
-@IF NOT "%CONDA_TEST_SAVE_TEMPS%x"=="x" @ECHO CONDA_TEST_SAVE_TEMPS :: retaining activate_batch %_TEMP_SCRIPT_PATH% 1>&2
-@IF "%CONDA_TEST_SAVE_TEMPS%x"=="x" @DEL /F /Q "%_TEMP_SCRIPT_PATH%"
+@IF DEFINED CONDA_TEST_SAVE_TEMPS @(
+    @ECHO CONDA_TEST_SAVE_TEMPS :: retaining activate_batch %_TEMP_SCRIPT_PATH% 1>&2
+) ELSE @(
+    @DEL /F /Q "%_TEMP_SCRIPT_PATH%"
+)
 @SET _TEMP_SCRIPT_PATH=
 @SET "PROMPT=%CONDA_PROMPT_MODIFIER%%PROMPT%"
