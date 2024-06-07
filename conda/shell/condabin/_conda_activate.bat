@@ -19,8 +19,7 @@
 :: This method will not work if %TMP% contains any spaces.
 @FOR /L %%I IN (1,1,100) DO @(
     @SET UNIQUE_DIR=%TMP%\conda-!RANDOM!
-    @MKDIR !UNIQUE_DIR! > NUL 2> NUL
-    @IF NOT ERRORLEVEL 1 @(
+    @MKDIR !UNIQUE_DIR! > NUL 2> NUL && @(
         @SET UNIQUE=!UNIQUE_DIR!\conda.tmp
         @TYPE NUL 1> !UNIQUE!
         @GOTO :TMP_FILE_CREATED
@@ -28,8 +27,7 @@
 )
 @ECHO Failed to create temp directory "%TMP%\conda-<RANDOM>\" & EXIT /B 1
 :TMP_FILE_CREATED
-@"%CONDA_EXE%" %_CE_M% %_CE_CONDA% shell.cmd.exe %* 1>%UNIQUE%
-@IF %ERRORLEVEL% NEQ 0 @EXIT /B %ERRORLEVEL%
+@"%CONDA_EXE%" %_CE_M% %_CE_CONDA% shell.cmd.exe %* 1>%UNIQUE% || @EXIT /B %ERRORLEVEL%
 @FOR /F %%i IN (%UNIQUE%) DO @SET _TEMP_SCRIPT_PATH=%%i
 @RMDIR /S /Q %UNIQUE_DIR%
 @FOR /F "delims=" %%A IN (""!_TEMP_SCRIPT_PATH!"") DO @ENDLOCAL & @SET _TEMP_SCRIPT_PATH=%%~A
