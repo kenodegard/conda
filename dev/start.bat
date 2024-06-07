@@ -44,10 +44,10 @@
     @ECHO                Path is appended with Windows. ^(default: devenv^)
     @ECHO   /N           Display env to activate. ^(default: false^)
     @ECHO.  /?           Display this.
-    @EXIT /B 0
+    @GOTO :EOF
 )
 @ECHO Error: unknown option %~1 1>&2
-@EXIT /B 1
+@GOTO :ERROR
 :ARGS_END
 
 :: fallback to default values
@@ -87,7 +87,7 @@
 @IF "%CONDA_SHLVL%"=="0" @GOTO DEACTIVATED
 @CALL conda deactivate || @(
     @ECHO Error: failed to deactivate environment^(s^) 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 @GOTO DEACTIVATING
 :DEACTIVATED
@@ -100,7 +100,7 @@
 @ECHO Downloading miniconda...
 @powershell.exe "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile '%_INSTALLER%\miniconda.exe' | Out-Null" || @(
     @ECHO Error: failed to download miniconda 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 :DOWNLOADED
 
@@ -114,7 +114,7 @@
     /S ^
     /D=%_DEVENV% > NUL || @(
     @ECHO Error: failed to install development environment 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 :: Windows doesn't ship with git so ensure installed into base otherwise auxlib will act up
 @CALL :CONDA "%_BASEEXE%" install --yes --quiet --name=base defaults::git > NUL
@@ -126,7 +126,7 @@
 
 @CALL :CONDA "%_BASEEXE%" create --yes --quiet "--prefix=%_ENV%" > NUL || @(
     @ECHO Error: failed to create %_NAME% 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 :ENVEXISTS
 
@@ -136,7 +136,7 @@
 
 @CALL :CONDA "%_BASEEXE%" update --yes --quiet --all > NUL || @(
     @ECHO Error: failed to update development environment 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 
 @CALL :CONDA "%_BASEEXE%" install ^
@@ -150,7 +150,7 @@
     "--file=%_SRC%\tests\requirements-Windows.txt" ^
     "python=%_PYTHON%" > NUL || @(
     @ECHO Error: failed to update %_NAME% 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 
 :: update timestamp
@@ -162,14 +162,14 @@
 @ECHO Initializing shell integration...
 @CALL "%_CONDAHOOK%" || @(
     @ECHO Error: failed to initialize shell integration 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 
 :: activate env
 @ECHO Activating %_NAME%...
 @CALL conda activate "%_ENV%" > NUL || @(
     @ECHO Error: failed to activate %_NAME% 1>&2
-    @EXIT /B 1
+    @GOTO :ERROR
 )
 @SET "CONDA_BAT=%_CONDABAT%"
 @DOSKEY conda="%CONDA_BAT%" $*
@@ -223,8 +223,8 @@
 
 :UPDATING
 :: check if explicitly updating or if 24 hrs since last update
-@IF %_UPDATE%==0 @EXIT /B 0
-@IF NOT EXIST "%_UPDATED%" @EXIT /B 0
+@IF [%_UPDATE%]==[0] @GOTO :EOF
+@IF NOT EXIST "%_UPDATED%" @GOTO :EOF
 @powershell.exe "Exit (Get-Item '"%_UPDATED%"').LastWriteTime -ge (Get-Date).AddHours(-24)"
 @EXIT /B %ERRORLEVEL%
 
@@ -251,4 +251,8 @@
 )
 @ECHO.
 @ECHO Source: %_SRC%
-@EXIT /B 0
+@GOTO :EOF
+
+:ERROR
+@CALL :CLEANUP
+@EXIT /B 1
