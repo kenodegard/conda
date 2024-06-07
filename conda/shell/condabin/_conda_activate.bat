@@ -28,7 +28,7 @@
 @ECHO Failed to create temp directory "%TMP%\conda-<RANDOM>\"
 @EXIT /B 1
 :TMP_FILE_CREATED
-@"%CONDA_EXE%" %_CE_M% %_CE_CONDA% shell.cmd.exe %* 1>%UNIQUE% || @EXIT /B %ERRORLEVEL%
+@"%CONDA_EXE%" %_CE_M% %_CE_CONDA% shell.cmd.exe %* > %UNIQUE% || @EXIT /B %ERRORLEVEL%
 @FOR /F %%i IN (%UNIQUE%) DO @SET _TEMP_SCRIPT_PATH=%%i
 @RMDIR /S /Q %UNIQUE_DIR%
 @FOR /F "delims=" %%A IN (""!_TEMP_SCRIPT_PATH!"") DO @ENDLOCAL & @SET _TEMP_SCRIPT_PATH=%%~A
