@@ -1,8 +1,5 @@
 @CALL :CLEANUP
 
-:: preserve script for help
-@SET "_SCRIPT=%~0"
-
 :: get source path
 @PUSHD "%~dp0\.."
 @SET "_SRC=%CD%"
@@ -38,7 +35,7 @@
     @GOTO :ARGS_LOOP
 )
 @IF "%_ARG%"=="/?" (
-    @ECHO Usage: %_SCRIPT% [options]
+    @ECHO Usage: %~f0 [options]
     @ECHO.
     @ECHO Options:
     @ECHO   /P  VERSION  Python version for the env to activate. ^(default: 3.10^)
