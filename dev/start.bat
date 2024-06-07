@@ -7,34 +7,34 @@
 
 :: parse args
 :ARGS_LOOP
-@IF "%~1"=="" @GOTO :ARGS_END
+@IF [%~1]==[] @GOTO :ARGS_END
 
 :: convert to uppercase
 @FOR /F "usebackq delims=" %%I IN (`powershell.exe "'%~1'.toUpper()"`) DO @SET "_ARG=%%~I"
 
-@IF "%_ARG%"=="/P" (
+@IF [%_ARG%]==[/P] @(
     @SET "_PYTHON=%~2"
     @SHIFT
     @SHIFT
     @GOTO :ARGS_LOOP
 )
-@IF "%_ARG%"=="/U" (
+@IF [%_ARG%]==[/U] @(
     @SET "_UPDATE=0"
     @SHIFT
     @GOTO :ARGS_LOOP
 )
-@IF "%_ARG%"=="/D" (
+@IF [%_ARG%]==[/D] @(
     @SET "_DEVENV=%~2"
     @SHIFT
     @SHIFT
     @GOTO :ARGS_LOOP
 )
-@IF "%_ARG%"=="/N" (
+@IF [%_ARG%]==[/N] @(
     @SET "_DRYRUN=0"
     @SHIFT
     @GOTO :ARGS_LOOP
 )
-@IF "%_ARG%"=="/?" (
+@IF [%_ARG%]==[/?] @(
     @ECHO Usage: %~f0 [options]
     @ECHO.
     @ECHO Options:
@@ -64,7 +64,7 @@
 :: include OS
 @SET "_DEVENV=%_DEVENV%\Windows"
 :: ensure exists
-@IF %_DRYRUN%==1 @IF NOT EXIST "%_DEVENV%" @MKDIR "%_DEVENV%"
+@IF [%_DRYRUN%]==[1] @IF NOT EXIST "%_DEVENV%" @MKDIR "%_DEVENV%"
 
 :: other environment variables
 @SET "_NAME=devenv-%_PYTHON%-c"
@@ -77,26 +77,26 @@
 @SET "_CONDAHOOK=%_ENV%\condabin\conda_hook.bat"
 
 :: dry-run printout
-@IF %_DRYRUN%==0 @GOTO :DRYRUN
+@IF [%_DRYRUN%]==[0] @GOTO :DRYRUN
 
 :: deactivate any prior envs
-@IF NOT DEFINED CONDA_SHLVL @GOTO DEACTIVATED
-@IF %CONDA_SHLVL%==0 @GOTO DEACTIVATED
+@IF NOT DEFINED CONDA_SHLVL @GOTO :DEACTIVATED
+@IF [%CONDA_SHLVL%]==[0] @GOTO :DEACTIVATED
 @ECHO Deactivating %CONDA_SHLVL% environment(s)...
 :DEACTIVATING
-@IF "%CONDA_SHLVL%"=="0" @GOTO DEACTIVATED
+@IF [%CONDA_SHLVL%]==[0] @GOTO :DEACTIVATED
 @CALL conda deactivate || @(
     @ECHO Error: failed to deactivate environment^(s^) 1>&2
     @GOTO :ERROR
 )
-@GOTO DEACTIVATING
+@GOTO :DEACTIVATING
 :DEACTIVATED
 
 :: does miniconda install exist?
-@IF EXIST "%_DEVENV%\conda-meta\history" @GOTO INSTALLED
+@IF EXIST "%_DEVENV%\conda-meta\history" @GOTO :INSTALLED
 
 :: downloading miniconda
-@IF EXIST "%_INSTALLER%\miniconda.exe" @GOTO DOWNLOADED
+@IF EXIST "%_INSTALLER%\miniconda.exe" @GOTO :DOWNLOADED
 @ECHO Downloading miniconda...
 @powershell.exe "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile '%_INSTALLER%\miniconda.exe' | Out-Null" || @(
     @ECHO Error: failed to download miniconda 1>&2
@@ -121,7 +121,7 @@
 :INSTALLED
 
 :: create empty env if it doesn't exist
-@IF EXIST "%_ENV%" @GOTO ENVEXISTS
+@IF EXIST "%_ENV%" @GOTO :ENVEXISTS
 @ECHO Creating %_NAME%...
 
 @CALL :CONDA "%_BASEEXE%" create --yes --quiet "--prefix=%_ENV%" > NUL || @(
@@ -232,21 +232,21 @@
 :: dry-run printout
 @ECHO Python: %_PYTHON%
 @CALL :UPDATING
-@IF %ERRORLEVEL%==0 (
+@IF [%ERRORLEVEL%]==[0] @(
     @ECHO Updating: [yes]
-) ELSE (
+) ELSE @(
     @ECHO Updating: [no]
 )
-@IF EXIST "%_DEVENV%" (
+@IF EXIST "%_DEVENV%" @(
     @ECHO Devenv: %_DEVENV% [exists]
-) ELSE (
+) ELSE @(
     @ECHO Devenv: %_DEVENV% [pending]
 )
 @ECHO.
 @ECHO Name: %_NAME%
-@IF EXIST "%_ENV%" (
+@IF EXIST "%_ENV%" @(
     @ECHO Path: %_ENV% [exists]
-) ELSE (
+) ELSE @(
     @ECHO Path: %_ENV% [pending]
 )
 @ECHO.
