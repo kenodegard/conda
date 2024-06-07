@@ -22,6 +22,7 @@ cleanup() {
     unset _ENVEXE
     unset _INSTALLER
     unset _MACH
+    unset _MINICONDA
     unset _NAME
     unset _PYTHON
     unset _PYTHONEXE
@@ -192,12 +193,16 @@ fi
 # does miniconda install exist?
 if ! [ -f "${_DEVENV}/conda-meta/history" ]; then
     # downloading miniconda
-    if [ "${_MACH}" = "Darwin" ]; then
-        [ -f "${_INSTALLER}/miniconda.sh" ] || _CMD='curl -s "https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${_ARCH}.sh" -o "${_INSTALLER}/miniconda.sh"'
-    elif [ "${_MACH}" = "Linux" ]; then
-        [ -f "${_INSTALLER}/miniconda.sh" ] || _CMD='curl -s "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${_ARCH}.sh" -o "${_INSTALLER}/miniconda.sh"'
-    else
-        [ -f "${_INSTALLER}/miniconda.exe" ] || _CMD='powershell.exe -Command "Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile '${_INSTALLER}/miniconda.exe' | Out-Null"'
+    if [ "${_MACH}" = "Darwin" ] && ! [ -f "${_INSTALLER}/miniconda.sh" ]; then
+        _MINICONDA="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${_ARCH}.sh"
+        _CMD='curl -s "'${_MINICONDA}'" -o "'${_INSTALLER}'/miniconda.sh"'
+    elif [ "${_MACH}" = "Linux" ] && ! [ -f "${_INSTALLER}/miniconda.sh" ]; then
+        _MINICONDA="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${_ARCH}.sh"
+        _CMD='curl -s "'${_MINICONDA}'" -o "'${_INSTALLER}'/miniconda.sh"'
+    elif ! [ -f "${_INSTALLER}/miniconda.exe" ]; then
+        _MINICONDA=https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+        _CMD="Invoke-WebRequest -Uri '${_MINICONDA}' -OutFile '${_INSTALLER}/miniconda.exe' | Out-Null"
+        _CMD='powershell.exe -Command "'${_CMD}'"'
     fi
     if [ ${_CMD:+0} = 0 ]; then
         echo "Downloading miniconda..."

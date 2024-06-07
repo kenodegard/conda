@@ -98,7 +98,8 @@
 :: downloading miniconda
 @IF EXIST "%_INSTALLER%\miniconda.exe" @GOTO :DOWNLOADED
 @ECHO Downloading miniconda...
-@powershell.exe "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile '%_INSTALLER%\miniconda.exe' | Out-Null" || @(
+@SET "_MINICONDA=https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe"
+@powershell.exe "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%_MINICONDA%' -OutFile '%_INSTALLER%\miniconda.exe' | Out-Null" || @(
     @ECHO Error: failed to download miniconda 1>&2
     @GOTO :ERROR
 )
@@ -186,6 +187,7 @@
 @SET _ENV=
 @SET _ENVEXE=
 @SET _INSTALLER=
+@SET _MINICONDA=
 @SET _NAME=
 @SET _PATH=
 @SET _PYTHON=
