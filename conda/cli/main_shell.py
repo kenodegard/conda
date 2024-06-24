@@ -28,7 +28,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
     for shell, plugin in context.plugin_manager.get_shells().items():
         p = sub_parsers.add_parser(
-            f"newshell.{shell}",
+            f"shell.{shell}",
             help="...",
             description="...",
             epilog="...",
@@ -50,7 +50,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
         # old school shell.posix+json
         old_p = sub_parsers.add_parser(
-            f"newshell.{shell}+json",
+            f"shell.{shell}+json",
             help="...",
             description="...",
             epilog="...",

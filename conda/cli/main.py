@@ -88,6 +88,7 @@ def main_subshell(*args, post_parse_hook=None, **kwargs):
         return exit_code.rc
 
 
+@deprecated("25.3", "25.9", addendum="Use `conda.cli.main.main_subshell` instead.")
 def main_sourced(shell, *args, **kwargs):
     """Entrypoint for the "sourced" invocation of CLI interface. E.g. `conda activate`."""
     shell = shell.replace("shell.", "", 1)
@@ -120,9 +121,4 @@ def main(*args, **kwargs):
     args = args or sys.argv[1:]  # drop executable/script
     args = tuple(ensure_text_type(s) for s in args)
 
-    if args and args[0].strip().startswith("shell."):
-        main = main_sourced
-    else:
-        main = main_subshell
-
-    return conda_exception_handler(main, *args, **kwargs)
+    return conda_exception_handler(main_subshell, *args, **kwargs)

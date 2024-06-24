@@ -223,6 +223,11 @@ class _Activator(metaclass=abc.ABCMeta):
             builder.append(postamble)
         return "\n".join(builder)
 
+    @deprecated(
+        "25.3",
+        "25.9",
+        addendum="Explicitly call activator command instead. See `conda.cli.main_shell*`.",
+    )
     def execute(self):
         # return value meant to be written to stdout
         self._parse_and_set_args(self._raw_arguments)
@@ -254,6 +259,11 @@ class _Activator(metaclass=abc.ABCMeta):
     def _hook_postamble(self) -> str | None:
         return None
 
+    @deprecated(
+        "25.3",
+        "25.9",
+        addendum="Prefer argparse parser instead. See `conda.cli.main_shell*`.",
+    )
     def _parse_and_set_args(self, arguments):
         def raise_invalid_command_error(actual_command=None):
             from .exceptions import ArgumentError
