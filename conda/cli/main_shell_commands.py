@@ -16,32 +16,23 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
-def configure_parser(
-    sub_parsers: _SubParsersAction,
-    *,
-    plus_json: bool,
-    **kwargs,
-) -> ArgumentParser:
-    from ..common.constants import NULL
-
+def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser:
     p = sub_parsers.add_parser("commands")
 
-    defaults = {}
-    if plus_json:
-        defaults["json"] = True
-    else:
-        p.add_argument(
-            "--json",
-            action="store_true",
-            default=NULL,
-            help="Report all output as json. Suitable for using conda programmatically.",
-        )
-
-    p.set_defaults(func="conda.cli.main_shell_commands.execute", **defaults)
+    p.set_defaults(func="conda.cli.main_shell_commands.execute")
 
     return p
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
-    print(args.activator().commands(), end="")
+    print("\n".join(get_commands()), end="")
     return 0
+
+
+def get_commands() -> tuple[str, ...]:
+    from .conda_argparse import find_builtin_commands, generate_parser
+    from .find_commands import find_commands
+
+    return tuple(
+        sorted(find_builtin_commands(generate_parser()) + tuple(find_commands(True)))
+    )

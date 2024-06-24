@@ -7,6 +7,7 @@ Prepares the user's profile for running conda, and sets up the conda shell inter
 
 from __future__ import annotations
 
+from argparse import SUPPRESS
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -29,9 +30,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
     for shell, plugin in context.plugin_manager.get_shells().items():
         p = sub_parsers.add_parser(
             f"shell.{shell}",
-            help="...",
-            description="...",
-            epilog="...",
+            help=SUPPRESS,
             **kwargs,
         )
 
@@ -51,9 +50,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         # old school shell.posix+json
         old_p = sub_parsers.add_parser(
             f"shell.{shell}+json",
-            help="...",
-            description="...",
-            epilog="...",
+            help=SUPPRESS,
             **kwargs,
         )
 

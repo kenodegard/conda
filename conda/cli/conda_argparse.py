@@ -7,14 +7,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from argparse import (
-    SUPPRESS,
-    RawDescriptionHelpFormatter,
-)
-from argparse import ArgumentParser as ArgumentParserBase
+from argparse import SUPPRESS
 from importlib import import_module
 from logging import getLogger
 from subprocess import Popen
+from typing import TYPE_CHECKING
 
 from .. import __version__
 from ..auxlib.compat import isiterable
@@ -66,6 +63,9 @@ from .main_search import configure_parser as configure_parser_search
 from .main_shell import configure_parser as configure_parser_shell
 from .main_update import configure_parser as configure_parser_update
 
+if TYPE_CHECKING:
+    from typing import Any, Literal, Sequence
+
 log = getLogger(__name__)
 
 escaped_user_rc_path = user_rc_path.replace("%", "%%")
@@ -95,8 +95,8 @@ BUILTIN_COMMANDS = {
 }
 
 
-def generate_pre_parser(**kwargs) -> ArgumentParser:
-    pre_parser = ArgumentParser(
+def generate_pre_parser(**kwargs) -> argparse.ArgumentParser:
+    pre_parser = CondaArgumentParser(
         description="conda is a tool for managing and deploying applications,"
         " environments and packages.",
         **kwargs,
@@ -119,7 +119,7 @@ def generate_pre_parser(**kwargs) -> ArgumentParser:
     return pre_parser
 
 
-def generate_parser(**kwargs) -> ArgumentParser:
+def generate_parser(**kwargs) -> argparse.ArgumentParser:
     parser = generate_pre_parser(**kwargs)
 
     parser.add_argument(
@@ -164,7 +164,7 @@ def generate_parser(**kwargs) -> ArgumentParser:
     return parser
 
 
-def do_call(args: argparse.Namespace, parser: ArgumentParser):
+def do_call(args: argparse.Namespace, parser: argparse.ArgumentParser):
     """
     Serves as the primary entry point for commands referred to in this file and for
     all registered plugin subcommands.
@@ -210,10 +210,47 @@ def find_builtin_commands(parser):
     return tuple(parser._subparsers._group_actions[0].choices.keys())
 
 
-class ArgumentParser(ArgumentParserBase):
-    def __init__(self, *args, add_help=True, **kwargs):
-        kwargs.setdefault("formatter_class", RawDescriptionHelpFormatter)
-        super().__init__(*args, add_help=False, **kwargs)
+class CondaHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    def _format_action(self, action: argparse.Action) -> str:
+        """Silence the help entry for subcommands using the SUPPRESS constant."""
+        if action.help is SUPPRESS:
+            return ""
+        else:
+            return super()._format_action(action)
+
+
+class CondaArgumentParser(argparse.ArgumentParser):
+    def __init__(
+        self,
+        prog: str | None = None,
+        usage: str | None = None,
+        description: str | None = None,
+        epilog: str | None = None,
+        parents: Sequence[argparse.ArgumentParser] = [],
+        formatter_class: type[argparse.HelpFormatter] = CondaHelpFormatter,
+        prefix_chars: str = "-",
+        fromfile_prefix_chars: str | None = None,
+        argument_default: Any = None,
+        conflict_handler: Literal["error", "resolve"] = "error",
+        add_help: bool = True,
+        allow_abbrev: bool = True,
+        exit_on_error: bool = True,
+    ) -> None:
+        super().__init__(
+            prog=prog,
+            usage=usage,
+            description=description,
+            epilog=epilog,
+            parents=parents,
+            formatter_class=formatter_class,
+            prefix_chars=prefix_chars,
+            fromfile_prefix_chars=fromfile_prefix_chars,
+            argument_default=argument_default,
+            conflict_handler=conflict_handler,
+            add_help=False,
+            allow_abbrev=allow_abbrev,
+            exit_on_error=exit_on_error,
+        )
 
         if add_help:
             add_parser_help(self)
@@ -232,6 +269,15 @@ class ArgumentParser(ArgumentParserBase):
             if value is not NULL and getattr(parsed_args, name, NULL) is NULL:
                 setattr(parsed_args, name, value)
         return parsed_args
+
+
+deprecated.constant(
+    "25.3",
+    "25.9",
+    "ArgumentParser",
+    CondaArgumentParser,
+    addendum="Use `conda.cli.conda_argparse.CondaArgumentParser` instead.",
+)
 
 
 class _GreedySubParsersAction(argparse._SubParsersAction):

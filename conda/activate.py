@@ -233,23 +233,20 @@ class _Activator(metaclass=abc.ABCMeta):
         self._parse_and_set_args(self._raw_arguments)
         return getattr(self, self.command)()
 
+    @deprecated(
+        "25.3",
+        "25.9",
+        addendum="Use `conda.cli.main_shell_commands.get_commands` instead.",
+    )
     def commands(self):
         """
         Returns a list of possible subcommands that are valid
         immediately following `conda` at the command line.
         This method is generally only used by tab-completion.
         """
-        # Import locally to reduce impact on initialization time.
-        from .cli.conda_argparse import find_builtin_commands, generate_parser
-        from .cli.find_commands import find_commands
+        from .cli.main_shell_commands import get_commands
 
-        # return value meant to be written to stdout
-        # Hidden commands to provide metadata to shells.
-        return "\n".join(
-            sorted(
-                find_builtin_commands(generate_parser()) + tuple(find_commands(True))
-            )
-        )
+        return "\n".join(get_commands)
 
     @abc.abstractmethod
     def _hook_preamble(self) -> str | None:
