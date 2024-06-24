@@ -10,8 +10,11 @@ from __future__ import annotations
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+from ..deprecations import deprecated
+
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace, _SubParsersAction
+    from typing import Any
 
 log = getLogger(__name__)
 
@@ -26,9 +29,10 @@ def configure_parser(
 
     p = sub_parsers.add_parser("activate")
 
-    defaults = {}
+    defaults: dict[str, Any] = {}
     if plus_json:
         defaults["json"] = True
+        defaults["func"] = "conda.cli.main_shell_activate.execute_plus_json"
     else:
         p.add_argument(
             "--json",
@@ -36,6 +40,7 @@ def configure_parser(
             default=NULL,
             help="Report all output as json. Suitable for using conda programmatically.",
         )
+        defaults["func"] = "conda.cli.main_shell_activate.execute"
 
     stacking = p.add_mutually_exclusive_group()
     stacking.add_argument("--stack", dest="stack", action="store_true", default=NULL)
@@ -45,7 +50,7 @@ def configure_parser(
 
     p.add_argument("env_name_or_prefix", action="store")
 
-    p.set_defaults(func="conda.cli.main_shell_activate.execute", **defaults)
+    p.set_defaults(**defaults)
 
     return p
 
@@ -69,3 +74,10 @@ def execute(args: Namespace, parser: ArgumentParser) -> int:
 
     print(activator.activate(), end="")
     return 0
+
+
+@deprecated(
+    "25.3", "25.9", addendum="Use `conda shell.SHELL activate ENV --json` instead."
+)
+def execute_plus_json(args: Namespace, parser: ArgumentParser) -> int:
+    return execute(args, parser)
