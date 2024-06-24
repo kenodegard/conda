@@ -21,7 +21,7 @@ import pluggy
 from ..auxlib.ish import dals
 from ..base.context import add_plugin_setting, context
 from ..exceptions import CondaValueError, PluginError
-from . import post_solves, solvers, subcommands, virtual_packages
+from . import post_solves, shells, solvers, subcommands, virtual_packages
 from .hookspec import CondaSpecs, spec_name
 from .subcommands.doctor import health_checks
 
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
         CondaPreCommand,
         CondaPreSolve,
         CondaSetting,
+        CondaShell,
         CondaSolver,
         CondaSubcommand,
         CondaVirtualPackage,
@@ -195,6 +196,9 @@ class CondaPluginManager(pluggy.PluginManager):
 
     @overload
     def get_hook_results(self, name: Literal["settings"]) -> list[CondaSetting]: ...
+
+    @overload
+    def get_hook_results(self, name: Literal["shells"]) -> list[CondaShell]: ...
 
     def get_hook_results(self, name):
         """
@@ -388,6 +392,13 @@ class CondaPluginManager(pluggy.PluginManager):
         for name, (parameter, aliases) in self.get_settings().items():
             add_plugin_setting(name, parameter, aliases)
 
+    def get_shells(self) -> dict[str, CondaShell]:
+        """Return a mapping from shell name to activator class."""
+        return {
+            shell_plugin.name.lower(): shell_plugin
+            for shell_plugin in self.get_hook_results("shells")
+        }
+
 
 @functools.lru_cache(maxsize=None)  # FUTURE: Python 3.9+, replace w/ functools.cache
 def get_plugin_manager() -> CondaPluginManager:
@@ -403,6 +414,7 @@ def get_plugin_manager() -> CondaPluginManager:
         *subcommands.plugins,
         health_checks,
         *post_solves.plugins,
+        *shells.plugins,
     )
     plugin_manager.load_entrypoints(spec_name)
     return plugin_manager

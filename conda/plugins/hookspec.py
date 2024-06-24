@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         CondaPreCommand,
         CondaPreSolve,
         CondaSetting,
+        CondaShell,
         CondaSolver,
         CondaSubcommand,
         CondaVirtualPackage,
@@ -331,4 +332,30 @@ class CondaSpecs:
                    parameter=PrimitiveParameter("default_value", element_type=str),
                    aliases=("example_option_alias",),
                )
+        """
+
+    @_hookspec
+    def conda_shells(self) -> Iterable[CondaShell]:
+        """
+        Register shells in conda.
+
+        **Example:**
+
+        .. code-block:: python
+
+            from conda import plugins
+            from conda import activate
+
+
+            class PosixActivator(activate._Activator): ...
+
+
+            @plugins.hookimpl
+            def conda_shell():
+                yield plugins.CondaShell(
+                    name="posix",
+                    activator=PosixActivator,
+                )
+
+        :return: An iterable of shell activators entries.
         """

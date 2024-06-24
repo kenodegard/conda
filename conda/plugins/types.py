@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
     from typing import Callable
 
+    from ..activate import _Activator
     from ..common.configuration import Parameter
     from ..core.solve import Solver
     from ..models.match_spec import MatchSpec
@@ -210,3 +211,18 @@ class CondaSetting:
     description: str
     parameter: Parameter
     aliases: tuple[str, ...] = tuple()
+
+
+class CondaShell(NamedTuple):
+    """
+    Return type to use when defining a conda shell plugin hook.
+
+    For details on how this is used, see
+    :meth:`~conda.plugins.hookspec.CondaSpecs.conda_shells`.
+
+    :param name: Shell name (e.g., ``posix``, ``csh``, ``powershell``).
+    :param activator: The shell activator class.
+    """
+
+    name: str
+    activator: type[_Activator]

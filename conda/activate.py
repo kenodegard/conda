@@ -32,7 +32,6 @@ from os.path import (
 from pathlib import Path
 from shutil import which
 from subprocess import run
-from textwrap import dedent
 from typing import TYPE_CHECKING
 
 # Since we have to have configuration context here, anything imported by
@@ -173,8 +172,11 @@ class _Activator(metaclass=abc.ABCMeta):
             ),
         )
 
-    def _finalize(self, commands, ext):
-        commands = (*commands, "")  # add terminating newline
+    def _finalize(self, cmds_dict: dict, ext: str | None) -> str:
+        commands = (
+            *self._yield_commands(cmds_dict),
+            "",  # add terminating newline
+        )
         if ext is None:
             return self.command_join.join(commands)
         elif ext:
@@ -186,23 +188,22 @@ class _Activator(metaclass=abc.ABCMeta):
         else:
             raise NotImplementedError()
 
-    def activate(self):
-        if self.stack:
-            builder_result = self.build_stack(self.env_name_or_prefix)
-        else:
-            builder_result = self.build_activate(self.env_name_or_prefix)
+    def activate(self) -> str:
         return self._finalize(
-            self._yield_commands(builder_result), self.tempfile_extension
+            self.build_activate(self.env_name_or_prefix, self.stack),
+            self.tempfile_extension,
         )
 
-    def deactivate(self):
+    def deactivate(self) -> str:
         return self._finalize(
-            self._yield_commands(self.build_deactivate()), self.tempfile_extension
+            self.build_deactivate(),
+            self.tempfile_extension,
         )
 
     def reactivate(self):
         return self._finalize(
-            self._yield_commands(self.build_reactivate()), self.tempfile_extension
+            self.build_reactivate(),
+            self.tempfile_extension,
         )
 
     def hook(self, auto_activate_base: bool | None = None) -> str:
@@ -367,13 +368,7 @@ class _Activator(metaclass=abc.ABCMeta):
         for script in cmds_dict.get("activate_scripts", ()):
             yield self.run_script_tmpl % script
 
-    def build_activate(self, env_name_or_prefix):
-        return self._build_activate_stack(env_name_or_prefix, False)
-
-    def build_stack(self, env_name_or_prefix):
-        return self._build_activate_stack(env_name_or_prefix, True)
-
-    def _build_activate_stack(self, env_name_or_prefix, stack):
+    def build_activate(self, env_name_or_prefix: str, stack: bool = False) -> dict:
         # get environment prefix
         if re.search(r"\\|/", env_name_or_prefix):
             prefix = expand(env_name_or_prefix)
@@ -471,6 +466,22 @@ class _Activator(metaclass=abc.ABCMeta):
             "deactivate_scripts": deactivate_scripts,
             "activate_scripts": activate_scripts,
         }
+
+    @deprecated(
+        "25.3",
+        "25.9",
+        addendum="Use `conda.activate._Activator.build_activate(stack=False)` instead.",
+    )
+    def build_stack(self, env_name_or_prefix: str) -> dict:
+        return self.build_activate(env_name_or_prefix, True)
+
+    @deprecated(
+        "25.3",
+        "25.9",
+        addendum="Use `conda.activate._Activator.build_activate` instead.",
+    )
+    def _build_activate_stack(self, env_name_or_prefix: str, stack: bool) -> dict:
+        return self.build_activate(env_name_or_prefix, stack)
 
     def build_deactivate(self):
         self._deactivate = True
@@ -1120,252 +1131,70 @@ def backslash_to_forwardslash(
         return tuple([path.replace("\\", "/") for path in paths])
 
 
-class PosixActivator(_Activator):
-    pathsep_join = ":".join
-    sep = "/"
-    path_conversion = staticmethod(native_path_to_unix)
-    script_extension = ".sh"
-    tempfile_extension = None  # output to stdout
-    command_join = "\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.PosixActivator` instead.",
+)
+def PosixActivator(*args, **kwargs):
+    from .plugins.shells.posix import PosixActivator
 
-    unset_var_tmpl = "unset %s"
-    export_var_tmpl = "export %s='%s'"
-    set_var_tmpl = "%s='%s'"
-    run_script_tmpl = '. "%s"'
-
-    hook_source_path = Path(
-        CONDA_PACKAGE_ROOT,
-        "shell",
-        "etc",
-        "profile.d",
-        "conda.sh",
-    )
-
-    def _update_prompt(self, set_vars, conda_prompt_modifier):
-        ps1 = os.getenv("PS1", "")
-        if "POWERLINE_COMMAND" in ps1:
-            # Defer to powerline (https://github.com/powerline/powerline) if it's in use.
-            return
-        current_prompt_modifier = os.getenv("CONDA_PROMPT_MODIFIER")
-        if current_prompt_modifier:
-            ps1 = re.sub(re.escape(current_prompt_modifier), r"", ps1)
-        # Because we're using single-quotes to set shell variables, we need to handle the
-        # proper escaping of single quotes that are already part of the string.
-        # Best solution appears to be https://stackoverflow.com/a/1250279
-        ps1 = ps1.replace("'", "'\"'\"'")
-        set_vars.update(
-            {
-                "PS1": conda_prompt_modifier + ps1,
-            }
-        )
-
-    def _hook_preamble(self) -> str:
-        result = []
-        for key, value in context.conda_exe_vars_dict.items():
-            if value is None:
-                # Using `unset_var_tmpl` would cause issues for people running
-                # with shell flag -u set (error on unset).
-                result.append(self.export_var_tmpl % (key, ""))
-            elif on_win and ("/" in value or "\\" in value):
-                result.append(f'''export {key}="$(cygpath '{value}')"''')
-            else:
-                result.append(self.export_var_tmpl % (key, value))
-        return "\n".join(result) + "\n"
+    return PosixActivator(*args, **kwargs)
 
 
-class CshActivator(_Activator):
-    pathsep_join = ":".join
-    sep = "/"
-    path_conversion = staticmethod(native_path_to_unix)
-    script_extension = ".csh"
-    tempfile_extension = None  # output to stdout
-    command_join = ";\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.CshActivator` instead.",
+)
+def CshActivator(*args, **kwargs):
+    from .plugins.shells.csh import CshActivator
 
-    unset_var_tmpl = "unsetenv %s"
-    export_var_tmpl = 'setenv %s "%s"'
-    set_var_tmpl = "set %s='%s'"
-    run_script_tmpl = 'source "%s"'
-
-    hook_source_path = Path(
-        CONDA_PACKAGE_ROOT,
-        "shell",
-        "etc",
-        "profile.d",
-        "conda.csh",
-    )
-
-    def _update_prompt(self, set_vars, conda_prompt_modifier):
-        prompt = os.getenv("prompt", "")
-        current_prompt_modifier = os.getenv("CONDA_PROMPT_MODIFIER")
-        if current_prompt_modifier:
-            prompt = re.sub(re.escape(current_prompt_modifier), r"", prompt)
-        set_vars.update(
-            {
-                "prompt": conda_prompt_modifier + prompt,
-            }
-        )
-
-    def _hook_preamble(self) -> str:
-        if on_win:
-            return dedent(
-                f"""
-                setenv CONDA_EXE `cygpath {context.conda_exe}`
-                setenv _CONDA_ROOT `cygpath {context.conda_prefix}`
-                setenv _CONDA_EXE `cygpath {context.conda_exe}`
-                setenv CONDA_PYTHON_EXE `cygpath {sys.executable}`
-                """
-            ).strip()
-        else:
-            return dedent(
-                f"""
-                setenv CONDA_EXE "{context.conda_exe}"
-                setenv _CONDA_ROOT "{context.conda_prefix}"
-                setenv _CONDA_EXE "{context.conda_exe}"
-                setenv CONDA_PYTHON_EXE "{sys.executable}"
-                """
-            ).strip()
+    return CshActivator(*args, **kwargs)
 
 
-class XonshActivator(_Activator):
-    pathsep_join = ";".join if on_win else ":".join
-    sep = "/"
-    path_conversion = staticmethod(
-        backslash_to_forwardslash if on_win else path_identity
-    )
-    # 'scripts' really refer to de/activation scripts, not scripts in the language per se
-    # xonsh can piggy-back activation scripts from other languages depending on the platform
-    script_extension = ".bat" if on_win else ".sh"
-    tempfile_extension = None  # output to stdout
-    command_join = "\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.XonshActivator` instead.",
+)
+def XonshActivator(*args, **kwargs):
+    from .plugins.shells.csh import XonshActivator
 
-    unset_var_tmpl = "del $%s"
-    export_var_tmpl = "$%s = '%s'"
-    # TODO: determine if different than export_var_tmpl
-    set_var_tmpl = "$%s = '%s'"
-    run_script_tmpl = (
-        'source-cmd --suppress-skip-message "%s"'
-        if on_win
-        else 'source-bash --suppress-skip-message -n "%s"'
-    )
-
-    hook_source_path = Path(CONDA_PACKAGE_ROOT, "shell", "conda.xsh")
-
-    def _hook_preamble(self) -> str:
-        return f'$CONDA_EXE = "{self.path_conversion(context.conda_exe)}"'
+    return XonshActivator(*args, **kwargs)
 
 
-class CmdExeActivator(_Activator):
-    pathsep_join = ";".join
-    sep = "\\"
-    path_conversion = staticmethod(path_identity)
-    script_extension = ".bat"
-    tempfile_extension = ".bat"
-    command_join = "\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.CmdExeActivator` instead.",
+)
+def CmdExeActivator(*args, **kwargs):
+    from .plugins.shells.cmd_exe import CmdExeActivator
 
-    unset_var_tmpl = "@SET %s="
-    export_var_tmpl = '@SET "%s=%s"'
-    # TODO: determine if different than export_var_tmpl
-    set_var_tmpl = '@SET "%s=%s"'
-    run_script_tmpl = '@CALL "%s"'
-
-    hook_source_path = None
-
-    def _hook_preamble(self) -> None:
-        # TODO: cmd.exe doesn't get a hook function? Or do we need to do something different?
-        #       Like, for cmd.exe only, put a special directory containing only conda.bat on PATH?
-        pass
+    return CmdExeActivator(*args, **kwargs)
 
 
-class FishActivator(_Activator):
-    pathsep_join = '" "'.join
-    sep = "/"
-    path_conversion = staticmethod(native_path_to_unix)
-    script_extension = ".fish"
-    tempfile_extension = None  # output to stdout
-    command_join = ";\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.FishActivator` instead.",
+)
+def FishActivator(*args, **kwargs):
+    from .plugins.shells.fish import FishActivator
 
-    unset_var_tmpl = "set -e %s"
-    export_var_tmpl = 'set -gx %s "%s"'
-    set_var_tmpl = 'set -g %s "%s"'
-    run_script_tmpl = 'source "%s"'
-
-    hook_source_path = Path(
-        CONDA_PACKAGE_ROOT,
-        "shell",
-        "etc",
-        "fish",
-        "conf.d",
-        "conda.fish",
-    )
-
-    def _hook_preamble(self) -> str:
-        if on_win:
-            return dedent(
-                f"""
-                set -gx CONDA_EXE (cygpath "{context.conda_exe}")
-                set _CONDA_ROOT (cygpath "{context.conda_prefix}")
-                set _CONDA_EXE (cygpath "{context.conda_exe}")
-                set -gx CONDA_PYTHON_EXE (cygpath "{sys.executable}")
-                """
-            ).strip()
-        else:
-            return dedent(
-                f"""
-                set -gx CONDA_EXE "{context.conda_exe}"
-                set _CONDA_ROOT "{context.conda_prefix}"
-                set _CONDA_EXE "{context.conda_exe}"
-                set -gx CONDA_PYTHON_EXE "{sys.executable}"
-                """
-            ).strip()
+    return FishActivator(*args, **kwargs)
 
 
-class PowerShellActivator(_Activator):
-    pathsep_join = ";".join if on_win else ":".join
-    sep = "\\" if on_win else "/"
-    path_conversion = staticmethod(path_identity)
-    script_extension = ".ps1"
-    tempfile_extension = None  # output to stdout
-    command_join = "\n"
+@deprecated(
+    "25.3",
+    "25.9",
+    addendum="Use `conda.plugins.shells.posix.PowerShellActivator` instead.",
+)
+def PowerShellActivator(*args, **kwargs):
+    from .plugins.shells.powershell import PowerShellActivator
 
-    unset_var_tmpl = '$Env:%s = ""'
-    export_var_tmpl = '$Env:%s = "%s"'
-    set_var_tmpl = '$Env:%s = "%s"'
-    run_script_tmpl = '. "%s"'
-
-    hook_source_path = Path(
-        CONDA_PACKAGE_ROOT,
-        "shell",
-        "condabin",
-        "conda-hook.ps1",
-    )
-
-    def _hook_preamble(self) -> str:
-        if context.dev:
-            return dedent(
-                f"""
-                $Env:PYTHONPATH = "{CONDA_SOURCE_ROOT}"
-                $Env:CONDA_EXE = "{sys.executable}"
-                $Env:_CE_M = "-m"
-                $Env:_CE_CONDA = "conda"
-                $Env:_CONDA_ROOT = "{CONDA_PACKAGE_ROOT}"
-                $Env:_CONDA_EXE = "{context.conda_exe}"
-                $CondaModuleArgs = @{{ChangePs1 = ${context.changeps1}}}
-                """
-            ).strip()
-        else:
-            return dedent(
-                f"""
-                $Env:CONDA_EXE = "{context.conda_exe}"
-                $Env:_CE_M = ""
-                $Env:_CE_CONDA = ""
-                $Env:_CONDA_ROOT = "{context.conda_prefix}"
-                $Env:_CONDA_EXE = "{context.conda_exe}"
-                $CondaModuleArgs = @{{ChangePs1 = ${context.changeps1}}}
-                """
-            ).strip()
-
-    def _hook_postamble(self) -> str:
-        return "Remove-Variable CondaModuleArgs"
+    return PowerShellActivator(*args, **kwargs)
 
 
 class JSONFormatMixin(_Activator):
@@ -1403,9 +1232,9 @@ class JSONFormatMixin(_Activator):
         export_vars, unset_vars = self.get_export_unset_vars(**kwargs)
         return export_vars or {}, unset_vars or []
 
-    def _finalize(self, commands, ext):
+    def _finalize(self, cmds_dict, ext):
         merged = {}
-        for _cmds in commands:
+        for _cmds in self._yield_commands(cmds_dict):
             merged.update(_cmds)
 
         commands = merged
