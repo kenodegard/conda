@@ -43,11 +43,13 @@ def configure_parser(
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
+    from ..activate import get_json_formatter
     from ..base.context import context
 
-    activator = args.activator()
-
-    activator.json = context.json
+    if context.json:
+        activator = get_json_formatter(args.activator)()
+    else:
+        activator = args.activator()
 
     print(activator.reactivate(), end="")
     return 0

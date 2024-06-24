@@ -51,12 +51,15 @@ def configure_parser(
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
+    from ..activate import get_json_formatter
     from ..base.context import context
     from ..common.constants import NULL
 
-    activator = args.activator()
+    if context.json:
+        activator = get_json_formatter(args.activator)()
+    else:
+        activator = args.activator()
 
-    activator.json = context.json
     if args.stack is not NULL:
         activator.stack = args.stack
     else:

@@ -1316,3 +1316,7 @@ def _build_activator_cls(shell):
 
     cls = type("Activator", tuple(reversed(bases)), {})
     return cls
+
+
+def get_json_formatter(activator: type[_Activator]) -> type[_Activator]:
+    return type("Activator", (JSONFormatMixin, activator), {})

@@ -64,7 +64,9 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         main_shell_commands.configure_parser(old_parsers, plus_json=True)
 
         old_p.set_defaults(
-            func="conda.cli.main_shell.execute", shell=shell, activator=plugin.activator
+            func="conda.cli.main_shell.execute",
+            shell=shell,
+            activator=plugin.activator,
         )
 
     return None
