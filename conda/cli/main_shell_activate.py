@@ -17,19 +17,33 @@ log = getLogger(__name__)
 
 
 def configure_parser(
-    sub_parsers: _SubParsersAction, *, json_arg: bool, **kwargs
+    sub_parsers: _SubParsersAction,
+    *,
+    plus_json: bool,
+    **kwargs,
 ) -> ArgumentParser:
+    from ..common.constants import NULL
+
     p = sub_parsers.add_parser("activate")
 
     defaults = {}
-    if json_arg:
-        p.add_argument("--json", action="store_true")
-    else:
+    if plus_json:
         defaults["json"] = True
+    else:
+        p.add_argument(
+            "--json",
+            action="store_true",
+            default=NULL,
+            help="Report all output as json. Suitable for using conda programmatically.",
+        )
 
     stacking = p.add_mutually_exclusive_group()
-    stacking.add_argument("--stack", dest="stack", action="store_true")
-    stacking.add_argument("--no-stack", dest="stack", action="store_false")
+    stacking.add_argument("--stack", dest="stack", action="store_true", default=NULL)
+    stacking.add_argument(
+        "--no-stack", dest="stack", action="store_false", default=NULL
+    )
+
+    p.add_argument("env_name_or_prefix", action="store")
 
     p.set_defaults(func="conda.cli.main_shell_activate.execute", **defaults)
 
@@ -37,6 +51,18 @@ def configure_parser(
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
-    print("...activate")
-    print(args)
+    from ..base.context import context
+    from ..common.constants import NULL
+
+    activator = args.activator()
+
+    activator.json = context.json
+    if args.stack is not NULL:
+        activator.stack = args.stack
+    else:
+        activator.stack = context.auto_stack and context.shlvl <= context.auto_stack
+
+    activator.env_name_or_prefix = args.env_name_or_prefix
+
+    print(activator.activate(), end="")
     return 0

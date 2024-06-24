@@ -28,7 +28,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
     for shell, plugin in context.plugin_manager.get_shells().items():
         p = sub_parsers.add_parser(
-            f"zhell.{shell}",
+            f"newshell.{shell}",
             help="...",
             description="...",
             epilog="...",
@@ -38,11 +38,11 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         shell_parsers = p.add_subparsers()
 
         # with --json support (defaults to json=False)
-        main_shell_activate.configure_parser(shell_parsers, json_arg=True)
-        main_shell_deactivate.configure_parser(shell_parsers, json_arg=True)
-        main_shell_reactivate.configure_parser(shell_parsers, json_arg=True)
-        main_shell_hook.configure_parser(shell_parsers)
-        main_shell_commands.configure_parser(shell_parsers)
+        main_shell_activate.configure_parser(shell_parsers, plus_json=False)
+        main_shell_deactivate.configure_parser(shell_parsers, plus_json=False)
+        main_shell_reactivate.configure_parser(shell_parsers, plus_json=False)
+        main_shell_hook.configure_parser(shell_parsers, plus_json=False)
+        main_shell_commands.configure_parser(shell_parsers, plus_json=False)
 
         p.set_defaults(
             func="conda.cli.main_shell.execute", shell=shell, activator=plugin.activator
@@ -50,7 +50,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
         # old school shell.posix+json
         old_p = sub_parsers.add_parser(
-            f"zhell.{shell}+json",
+            f"newshell.{shell}+json",
             help="...",
             description="...",
             epilog="...",
@@ -60,11 +60,11 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         old_parsers = old_p.add_subparsers()
 
         # without --json support (defaults to json=True)
-        main_shell_activate.configure_parser(old_parsers, json_arg=False)
-        main_shell_deactivate.configure_parser(old_parsers, json_arg=False)
-        main_shell_reactivate.configure_parser(old_parsers, json_arg=False)
-        main_shell_hook.configure_parser(old_parsers)
-        main_shell_commands.configure_parser(old_parsers)
+        main_shell_activate.configure_parser(old_parsers, plus_json=True)
+        main_shell_deactivate.configure_parser(old_parsers, plus_json=True)
+        main_shell_reactivate.configure_parser(old_parsers, plus_json=True)
+        main_shell_hook.configure_parser(old_parsers, plus_json=True)
+        main_shell_commands.configure_parser(old_parsers, plus_json=True)
 
         old_p.set_defaults(
             func="conda.cli.main_shell.execute", shell=shell, activator=plugin.activator
@@ -74,5 +74,6 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
-    print("...")
+    parser.parse_args([args.cmd, "--help"])
+
     return 0

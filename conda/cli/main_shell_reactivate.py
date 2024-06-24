@@ -17,15 +17,25 @@ log = getLogger(__name__)
 
 
 def configure_parser(
-    sub_parsers: _SubParsersAction, *, json_arg: bool, **kwargs
+    sub_parsers: _SubParsersAction,
+    *,
+    plus_json: bool,
+    **kwargs,
 ) -> ArgumentParser:
+    from ..common.constants import NULL
+
     p = sub_parsers.add_parser("reactivate")
 
     defaults = {}
-    if json_arg:
-        p.add_argument("--json", action="store_true")
-    else:
+    if plus_json:
         defaults["json"] = True
+    else:
+        p.add_argument(
+            "--json",
+            action="store_true",
+            default=NULL,
+            help="Report all output as json. Suitable for using conda programmatically.",
+        )
 
     p.set_defaults(func="conda.cli.main_shell_reactivate.execute", **defaults)
 
@@ -33,6 +43,11 @@ def configure_parser(
 
 
 def execute(args: Namespace, parser: ArgumentParser) -> int:
-    print("...reactivate")
-    print(args)
+    from ..base.context import context
+
+    activator = args.activator()
+
+    activator.json = context.json
+
+    print(activator.reactivate(), end="")
     return 0
