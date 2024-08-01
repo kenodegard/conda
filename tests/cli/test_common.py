@@ -10,11 +10,11 @@ import pytest
 
 from conda.base.context import conda_tests_ctxt_mgmt_def_pol, context, reset_context
 from conda.cli.common import check_non_admin, confirm, confirm_yn, is_active_prefix
-from conda.common.io import captured, env_vars
+from conda.common.io import env_vars
 from conda.exceptions import CondaSystemExit, DryRunExit, OperationNotAllowed
 
 if TYPE_CHECKING:
-    from pytest import MonkeyPatch
+    from pytest import CaptureFixture, MonkeyPatch
     from pytest_mock import MockerFixture
 
 
@@ -38,48 +38,47 @@ def test_check_non_admin(
         check_non_admin()
 
 
-def test_confirm_yn_yes(monkeypatch: MonkeyPatch):
-    monkeypatch.setattr("sys.stdin", StringIO("blah\ny\n"))
+@pytest.mark.parametrize("always_yes", [True, False])
+@pytest.mark.parametrize("dry_run", [True, False])
+@pytest.mark.parametrize(
+    "stdin,raises",
+    [
+        ("blah\ny\n", None),
+        ("n\n", CondaSystemExit),
+    ],
+)
+def test_confirm_yn(
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture,
+    always_yes: bool,
+    dry_run: bool,
+    stdin: str,
+    raises: type[Exception] | None,
+) -> None:
+    monkeypatch.setattr("sys.stdin", StringIO(stdin))
 
-    with env_vars(
-        {
-            "CONDA_ALWAYS_YES": "false",
-            "CONDA_DRY_RUN": "false",
-        },
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ), captured() as cap:
-        assert not context.always_yes
-        assert not context.dry_run
+    monkeypatch.setenv("CONDA_ALWAYS_YES", str(always_yes))
+    monkeypatch.setenv("CONDA_DRY_RUN", str(dry_run))
+    reset_context()
+    assert context.always_yes is always_yes
+    assert context.dry_run is dry_run
 
+    # precedence: dry-run > always-yes > stdin
+    if dry_run:
+        raises = DryRunExit
+    elif always_yes:
+        raises = None
+
+    with pytest.raises(raises) if raises else nullcontext():
         assert confirm_yn()
 
-    assert "Invalid choice" in cap.stdout
-
-
-def test_confirm_yn_no(monkeypatch: MonkeyPatch):
-    monkeypatch.setattr("sys.stdin", StringIO("n\n"))
-
-    with env_vars(
-        {
-            "CONDA_ALWAYS_YES": "false",
-            "CONDA_DRY_RUN": "false",
-        },
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ), pytest.raises(CondaSystemExit):
-        assert not context.always_yes
-        assert not context.dry_run
-
-        confirm_yn()
-
-
-def test_confirm_yn_dry_run_exit():
-    with env_vars(
-        {"CONDA_DRY_RUN": "true"},
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ), pytest.raises(DryRunExit):
-        assert context.dry_run
-
-        confirm_yn()
+        # only checking output if no exception was raised
+        stdout, stderr = capsys.readouterr()
+        if not always_yes:
+            assert "Invalid choice" in stdout
+        else:
+            assert not stdout
+        assert not stderr
 
 
 def test_confirm_dry_run_exit():
@@ -90,20 +89,6 @@ def test_confirm_dry_run_exit():
         assert context.dry_run
 
         confirm()
-
-
-def test_confirm_yn_always_yes():
-    with env_vars(
-        {
-            "CONDA_ALWAYS_YES": "true",
-            "CONDA_DRY_RUN": "false",
-        },
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ):
-        assert context.always_yes
-        assert not context.dry_run
-
-        assert confirm_yn()
 
 
 @pytest.mark.parametrize("prefix,active", [("", False), ("active_prefix", True)])
