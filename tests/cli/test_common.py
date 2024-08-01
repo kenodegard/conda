@@ -1,46 +1,41 @@
 # Copyright (C) 2012 Anaconda, Inc
 # SPDX-License-Identifier: BSD-3-Clause
-import os
+from __future__ import annotations
+
+from contextlib import nullcontext
 from io import StringIO
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest import MonkeyPatch, raises
 
-from conda.base.context import conda_tests_ctxt_mgmt_def_pol, context
+from conda.base.context import conda_tests_ctxt_mgmt_def_pol, context, reset_context
 from conda.cli.common import check_non_admin, confirm, confirm_yn, is_active_prefix
-from conda.common.compat import on_win
 from conda.common.io import captured, env_vars
 from conda.exceptions import CondaSystemExit, DryRunExit, OperationNotAllowed
 
-
-def test_check_non_admin_enabled_false():
-    with env_vars(
-        {"CONDA_NON_ADMIN_ENABLED": "false"},
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ):
-        if on_win:
-            from conda.common._os.windows import is_admin_on_windows
-
-            if is_admin_on_windows():
-                check_non_admin()
-            else:
-                with raises(OperationNotAllowed):
-                    check_non_admin()
-        else:
-            if os.geteuid() == 0 or os.getegid() == 0:
-                check_non_admin()
-            else:
-                with raises(OperationNotAllowed):
-                    check_non_admin()
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
+    from pytest_mock import MockerFixture
 
 
-def test_check_non_admin_enabled_true():
-    with env_vars(
-        {"CONDA_NON_ADMIN_ENABLED": "true"},
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
+@pytest.mark.parametrize("non_admin_enabled", [True, False])
+@pytest.mark.parametrize("is_admin", [True, False])
+def test_check_non_admin(
+    monkeypatch: MonkeyPatch,
+    mocker: MockerFixture,
+    is_admin: bool,
+    non_admin_enabled: bool,
+) -> None:
+    monkeypatch.setenv("CONDA_NON_ADMIN_ENABLED", str(non_admin_enabled))
+    reset_context()
+    assert context.non_admin_enabled is non_admin_enabled
+
+    mocker.patch("conda.common._os.is_admin", return_value=is_admin)
+
+    with nullcontext() if non_admin_enabled or is_admin else pytest.raises(
+        OperationNotAllowed
     ):
         check_non_admin()
-        assert True
 
 
 def test_confirm_yn_yes(monkeypatch: MonkeyPatch):
