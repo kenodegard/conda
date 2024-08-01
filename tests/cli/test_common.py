@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from conda.base.context import conda_tests_ctxt_mgmt_def_pol, context, reset_context
+from conda.base.context import context, reset_context
 from conda.cli.common import check_non_admin, confirm, confirm_yn, is_active_prefix
-from conda.common.io import env_vars
 from conda.exceptions import CondaSystemExit, DryRunExit, OperationNotAllowed
 
 if TYPE_CHECKING:
@@ -81,13 +80,12 @@ def test_confirm_yn(
         assert not stderr
 
 
-def test_confirm_dry_run_exit():
-    with env_vars(
-        {"CONDA_DRY_RUN": "true"},
-        stack_callback=conda_tests_ctxt_mgmt_def_pol,
-    ), pytest.raises(DryRunExit):
-        assert context.dry_run
+def test_confirm_dry_run_exit(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("CONDA_DRY_RUN", "true")
+    reset_context()
+    assert context.dry_run
 
+    with pytest.raises(DryRunExit):
         confirm()
 
 
