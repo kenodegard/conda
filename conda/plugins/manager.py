@@ -53,6 +53,7 @@ if TYPE_CHECKING:
         CondaAuthHandler,
         CondaEnvironmentSpecifier,
         CondaHealthCheck,
+        CondaInfoComponent,
         CondaPostCommand,
         CondaPostSolve,
         CondaPreCommand,
@@ -242,6 +243,11 @@ class CondaPluginManager(pluggy.PluginManager):
     def get_hook_results(
         self, name: Literal["environment_specifiers"]
     ) -> list[CondaEnvironmentSpecifier]: ...
+
+    @overload
+    def get_hook_results(
+        self, name: Literal["info_components"]
+    ) -> list[CondaInfoComponent]: ...
 
     def get_hook_results(self, name, **kwargs):
         """
@@ -540,6 +546,9 @@ class CondaPluginManager(pluggy.PluginManager):
         raise EnvironmentSpecPluginNotDetected(
             name=filename, plugin_names=[hook.name for hook in hooks]
         )
+
+    def get_info_components(self) -> tuple[CondaInfoComponent, ...]:
+        return tuple(self.get_hook_results("info_components"))
 
 
 @functools.cache

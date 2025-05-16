@@ -8,13 +8,14 @@ This reporter backend provides the default output for conda.
 
 from __future__ import annotations
 
+from frozendict import frozendict
 import sys
 from errno import EPIPE, ESHUTDOWN
 from itertools import cycle
 from os.path import basename, dirname
 from threading import Event, Thread
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from ...base.constants import DEFAULT_CONSOLE_REPORTER_BACKEND, ROOT_ENV_NAME
 from ...base.context import context
@@ -23,6 +24,7 @@ from ...common.path import paths_equal
 from ...exceptions import CondaError
 from .. import CondaReporterBackend, hookimpl
 from ..types import ProgressBarBase, ReporterRendererBase, SpinnerBase
+from collections.abc import Mapping
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -172,12 +174,65 @@ class QuietSpinner(SpinnerBase):
             sys.stdout.flush()
 
 
+ScalarType = Union[str, int, bool]
+
+def isiterable(data: Any, extend_exclude: type | tuple[type, ...] | None = None) -> bool:
+    exclude = (
+        str,
+        *(extend_exclude if isinstance(extend_exclude, tuple) else [extend_exclude]),
+    )
+    return isinstance(data, Iterable) and not isinstance(data, exclude)
+
 class ConsoleReporterRenderer(ReporterRendererBase):
     """
     Default implementation for console reporting in conda
     """
 
+    @staticmethod
+    def info_component_view(
+        data: ScalarType | Mapping[str, ScalarType] | Iterable[ScalarType | Iterable[ScalarType]],
+        section: str | None,
+        **kwargs,
+    ) -> Iterable[str]:
+        if section:
+            yield str(section)
+
+        if isinstance(data, Mapping):
+            # 2xN table
+            data = frozendict(data)
+            lengths = max(map(len, data))
+            yield from (
+                f" {key:>{lengths}} : {value}"
+                for key, value in data.items()
+            )
+        elif isiterable(data):
+            data = tuple(data)
+            if data and isiterable(data[0]):
+                # NxM table
+                data = tuple(tuple(data) for element in data)
+                lengths = {}
+                for row in data:
+                    for i, element in enumerate(row):
+                        lengths[i] = max(lengths.get(i, 0), len(element))
+                # no trailing whitespace so remove length for last index
+                lengths[max(lengths)] = 0
+                yield from (
+                    "".join(f" {row:{lengths[i]}}" for i, element in enumerate(row))
+                    for row in data
+                )
+            else:
+                # list
+                yield from (
+                    str(element)
+                    for element in data
+                )
+        else:
+            # scalar
+            yield str(data)
+
     def detail_view(self, data: dict[str, str | int | bool], **kwargs) -> str:
+        return "\n".join(self.info_component_view(data, section=None)) + "\n"
+
         table_parts = [""]
         longest_header = max(map(len, data.keys()))
 

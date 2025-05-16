@@ -413,3 +413,14 @@ class CondaEnvironmentSpecifier:
 
     name: str
     environment_spec: type[EnvironmentSpecBase]
+
+
+@dataclass
+class CondaInfoComponent:
+    """
+    Define new components to expose in the conda info command.
+    """
+
+    name: str
+    print: Callable[[], str]
+    json: Callable[[], dict[str, Any]]
