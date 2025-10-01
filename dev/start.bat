@@ -73,10 +73,11 @@
 @ECHO Note: This choice can be overridden by setting the 'installer_type' key in ~\.condarc.
 @ECHO.
 @SET /P "_INSTALLER_TYPE=Enter choice [1]: "
-@IF NOT %ErrorLevel%==0 @EXIT /B 1
+:: terminated or empty prompt returns errorlevel 1, set default
+@IF %ErrorLevel%==1 @SET "_INSTALLER_TYPE=miniconda"
+@CALL :RESET
 :: normalize user input
 @IF "%_INSTALLER_TYPE%"=="1" @SET "_INSTALLER_TYPE=miniconda"
-@IF "%_INSTALLER_TYPE%"=="" @SET "_INSTALLER_TYPE=miniconda"
 @IF "%_INSTALLER_TYPE%"=="2" @SET "_INSTALLER_TYPE=miniforge"
 @IF "%_INSTALLER_TYPE%"!="miniconda" @IF "%_INSTALLER_TYPE%"!="miniforge" (
     @ECHO Error: invalid choice '%_INSTALLER_TYPE%'. Please run again and choose 1 or 2. 1>&2
@@ -295,6 +296,11 @@
 @SET _SRC=
 @SET _UPDATE=
 @SET _UPDATED=
+@GOTO :RESET
+
+:RESET
+:: reset errorlevel
+@VER > NUL
 @GOTO :EOF
 
 :CONDA *args
