@@ -75,11 +75,6 @@ def _clean_modules() -> None:
         del sys.modules[k]
 
 
-def _pedantic_setup() -> tuple[tuple[()], dict[str, object]]:
-    _clean_modules()
-    return (), {}
-
-
 @pytest.fixture()
 def _restore_modules():
     """Save ``sys.modules`` before an import benchmark and restore it after.
@@ -103,7 +98,7 @@ def _run_import_benchmark(benchmark: BenchmarkFixture, target) -> None:
     single ``benchmark(target)`` call — still useful as a smoke test.
     """
     if hasattr(benchmark, "pedantic"):
-        benchmark.pedantic(target, setup=_pedantic_setup, rounds=5, warmup_rounds=1)
+        benchmark.pedantic(target, setup=_clean_modules, rounds=5, warmup_rounds=1)
     else:
         _clean_modules()
         benchmark(target)
