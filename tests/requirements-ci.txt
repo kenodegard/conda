@@ -1,4 +1,5 @@
 conda  # for Windows shell activation tests
+conda-forge::pytest-codspeed >=3.0.0
 coverage
 flask >=2.2  # package server pytest fixture
 git
