@@ -99,8 +99,7 @@ def _run_import_benchmark(benchmark: BenchmarkFixture, target) -> None:
 
 
 @pytest.mark.benchmark
-@pytest.mark.usefixtures("_restore_modules")
-def test_import_cli_main(benchmark: BenchmarkFixture) -> None:
+def test_import_cli_main(_restore_modules, benchmark: BenchmarkFixture) -> None:
     """Cost of ``from conda.cli.main import main``."""
 
     def target() -> object:
@@ -112,8 +111,7 @@ def test_import_cli_main(benchmark: BenchmarkFixture) -> None:
 
 
 @pytest.mark.benchmark
-@pytest.mark.usefixtures("_restore_modules")
-def test_import_context(benchmark: BenchmarkFixture) -> None:
+def test_import_context(_restore_modules, benchmark: BenchmarkFixture) -> None:
     """Cost of importing ``conda.base.context.context``."""
 
     def target() -> object:
@@ -125,8 +123,7 @@ def test_import_context(benchmark: BenchmarkFixture) -> None:
 
 
 @pytest.mark.benchmark
-@pytest.mark.usefixtures("_restore_modules")
-def test_import_conda_argparse(benchmark: BenchmarkFixture) -> None:
+def test_import_conda_argparse(_restore_modules, benchmark: BenchmarkFixture) -> None:
     """Cost of importing ``conda.cli.conda_argparse``."""
 
     def target() -> object:
@@ -199,13 +196,11 @@ def test_version_main(benchmark: BenchmarkFixture) -> None:
             id="generate_parser",
         ),
         pytest.param(
-            (
-                "from conda.cli.main import main\n"
-                "try:\n"
-                "    main('--version')\n"
-                "except SystemExit:\n"
-                "    pass"
-            ),
+            "from conda.cli.main import main\n"
+            "try:\n"
+            "    main('--version')\n"
+            "except SystemExit:\n"
+            "    pass",
             1000,
             id="full_startup",
         ),
