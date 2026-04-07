@@ -28,14 +28,8 @@ from conda.cli.conda_argparse import generate_parser
 from conda.cli.main import main
 
 if TYPE_CHECKING:
-    from typing import TypedDict
-
+    from pytest import FixtureRequest
     from pytest_codspeed.plugin import BenchmarkFixture
-
-    class _BudgetSpec(TypedDict):
-        code: str
-        max_modules: int
-
 
 # Packages the test runner needs — never remove these from sys.modules.
 _TEST_INFRA = frozenset(
@@ -178,57 +172,52 @@ def test_version_main(benchmark: BenchmarkFixture) -> None:
 #   import_argparse / generate_parser budgets are set at the pre-A2/A3 level
 #   (all 20 main_* subcommand modules loaded eagerly).  Lower them
 #   significantly once conda/conda#15868 (lazy subcommand parser) merges.
-_MODULE_BUDGETS: dict[str, _BudgetSpec] = {
-    "import_main": {
-        "code": "from conda.cli.main import main",
-        "max_modules": 450,
-    },
-    "import_context": {
-        "code": (
-            "from conda.cli.main import main\nfrom conda.base.context import context"
-        ),
-        "max_modules": 700,
-    },
-    # Covers the argparse module itself.  Pre-A2/A3 this eagerly imports all
-    # 20 main_* subcommand modules; post-A2/A3 (#15868) it should drop to
-    # ~100.  Ratchet this budget down when that PR merges.
-    "import_argparse": {
-        "code": "from conda.cli.conda_argparse import generate_parser",
-        "max_modules": 1050,
-    },
-    # Covers building the full parser.  Pre-A2/A3 generate_parser() also
-    # triggers plugin discovery, loading all plugin modules.  Post-A2/A3
-    # plugin discovery is deferred, so this should also drop to ~100.
-    # Ratchet this budget down when #15868 merges.
-    "generate_parser": {
-        "code": (
-            "from conda.cli.conda_argparse import generate_parser\ngenerate_parser()"
-        ),
-        "max_modules": 1200,
-    },
-    "full_startup": {
-        "code": (
-            "import contextlib, io\n"
-            "from conda.cli.main import main\n"
-            "with contextlib.redirect_stdout(io.StringIO()):\n"
-            "    try:\n"
-            "        main('--version')\n"
-            "    except SystemExit:\n"
-            "        pass"
-        ),
-        "max_modules": 1000,
-    },
-}
-
-
 @pytest.mark.parametrize(
-    ("phase", "spec"),
-    _MODULE_BUDGETS.items(),
-    ids=_MODULE_BUDGETS,
+    "code,max_modules",
+    [
+        pytest.param("from conda.cli.main import main", 450, id="import_main"),
+        pytest.param(
+            "from conda.cli.main import main\nfrom conda.base.context import context",
+            700,
+            id="import_context",
+        ),
+        # Covers the argparse module itself.  Pre-A2/A3 this eagerly imports all
+        # 20 main_* subcommand modules; post-A2/A3 (#15868) it should drop to
+        # ~100.  Ratchet this budget down when that PR merges.
+        pytest.param(
+            "from conda.cli.conda_argparse import generate_parser",
+            1050,
+            id="import_argparse",
+        ),
+        # Covers building the full parser.  Pre-A2/A3 generate_parser() also
+        # triggers plugin discovery, loading all plugin modules.  Post-A2/A3
+        # plugin discovery is deferred, so this should also drop to ~100.
+        # Ratchet this budget down when #15868 merges.
+        pytest.param(
+            "from conda.cli.conda_argparse import generate_parser\ngenerate_parser()",
+            1200,
+            id="generate_parser",
+        ),
+        pytest.param(
+            (
+                "from conda.cli.main import main\n"
+                "try:\n"
+                "    main('--version')\n"
+                "except SystemExit:\n"
+                "    pass"
+            ),
+            1000,
+            id="full_startup",
+        ),
+    ],
 )
-def test_module_count_budget(phase: str, spec: _BudgetSpec) -> None:
+def test_module_count_budget(
+    code: str,
+    max_modules: int,
+    request: FixtureRequest,
+) -> None:
     """Guard against accidental dependency additions in the startup path."""
-    snippet = f"import sys\n{spec['code']}\nprint(len(sys.modules))"
+    snippet = f"import sys\n{code}\nprint(len(sys.modules))"
     result = subprocess.run(
         [sys.executable, "-Xfrozen_modules=on", "-c", snippet],
         capture_output=True,
@@ -236,9 +225,9 @@ def test_module_count_budget(phase: str, spec: _BudgetSpec) -> None:
         timeout=30,
     )
     assert result.returncode == 0, f"Probe failed: {result.stderr}"
-    count = int(result.stdout.strip())
-    assert count <= spec["max_modules"], (
-        f"Phase '{phase}' loaded {count} modules, "
-        f"budget is {spec['max_modules']}. "
+    count = int(result.stdout.strip().splitlines()[-1])
+    assert count <= max_modules, (
+        f"'{request.node.callspec.id}' loaded {count} modules, "
+        f"budget is {max_modules}. "
         f"A new import was likely added to the startup path."
     )
