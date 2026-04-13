@@ -59,8 +59,8 @@ def test_conda_pip_interop_dependency_satisfied_by_pip(
     monkeypatch.setenv("CONDA_PREFIX_DATA_INTEROPERABILITY", "true")
     reset_context()
     assert context.prefix_data_interoperability
-    with tmp_env("python=3.10", "pip") as prefix:
-        assert package_is_installed(prefix, "python=3.10")
+    with tmp_env("python", "pip") as prefix:
+        assert package_is_installed(prefix, "python")
         assert package_is_installed(prefix, "pip")
         stdout, stderr, code = pip_cli("install", "itsdangerous", prefix=prefix)
         assert code == 0, f"pip install failed: {stderr}"
