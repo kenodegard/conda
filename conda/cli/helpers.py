@@ -8,129 +8,25 @@ from __future__ import annotations
 
 from argparse import (
     SUPPRESS,
-    Action,
     BooleanOptionalAction,
     _AppendAction,
     _HelpAction,
-    _StoreAction,
 )
 from typing import TYPE_CHECKING
 
-from ..common.constants import NULL
 from ..deprecations import deprecated
+from .actions import LazyAction, _ValidatePackages
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser, _ArgumentGroup, _MutuallyExclusiveGroup
-    from collections.abc import Callable, Iterable, Sequence
-    from typing import Any
-
-
-class lazyproperty:
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    @property
-    def __key__(self) -> str:
-        return f"_{self.__name__}"
-
-    @property
-    def __factory__(self) -> str:
-        return f"_{self.__name__}_factory"
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        try:
-            return getattr(instance, self.__key__)
-        except AttributeError:
-            pass
-        factory = getattr(instance, self.__factory__, None)
-        value = factory() if factory else None
-        setattr(instance, self.__key__, value)
-        return value
-
-    def __set__(self, instance, value):
-        factory = getattr(instance, self.__factory__, None)
-        if value is not None or not factory:
-            setattr(instance, self.__key__, value)
-
-    def __delete__(self, instance):
-        delattr(instance, self.__key__)
-
-
-class LazyAction(Action):
-    choices: Iterable[Any] | None = lazyproperty()
-    help: str | None = lazyproperty()
-
-    @deprecated.argument(
-        "26.9",
-        "27.3",
-        "choices_func",
-        rename="choices_factory",
-    )
-    def __init__(
-        self,
-        *,  # force keyword-only arguments
-        choices: Iterable[Any] | None = None,
-        choices_factory: Callable[[], Sequence[Any] | None] | None = None,
-        help: str | None = None,
-        help_factory: Callable[[], str | None] | None = None,
-        **kwargs,
-    ):
-        if choices and choices_factory:
-            raise ValueError("choices and choices_factory are mutually exclusive")
-        self._choices_factory = choices_factory
-
-        if help and help_factory:
-            raise ValueError("help and help_factory are mutually exclusive")
-        self._help_factory = help_factory
-
-        super().__init__(choices=choices, help=help, **kwargs)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        valid_choices = self.choices
-        if values not in valid_choices:
-            choices_string = ", ".join(f"'{val}'" for val in valid_choices)
-            # Use the same format as argparse for consistency
-            option_display = "/".join(self.option_strings)
-            parser.error(
-                f"argument {option_display}: invalid choice: {values!r} (choose from {choices_string})"
-            )
-        setattr(namespace, self.dest, values)
 
 
 # backwards compatibility
 LazyChoicesAction = LazyAction
 
 
-class _ValidatePackages(_StoreAction):
-    """
-    Used to validate match specs of packages
-    """
-
-    @staticmethod
-    def _validate_no_denylist_channels(packages_specs):
-        """
-        Ensure the packages do not contain denylist_channels
-        """
-        from ..base.context import validate_channels
-        from ..models.match_spec import MatchSpec
-
-        if not isinstance(packages_specs, (list, tuple)):
-            packages_specs = [packages_specs]
-
-        validate_channels(
-            channel
-            for spec in map(MatchSpec, packages_specs)
-            if (channel := spec.get_exact_value("channel"))
-        )
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        self._validate_no_denylist_channels(values)
-        super().__call__(parser, namespace, values, option_string)
-
-
 def add_parser_create_install_update(p, prefix_required=False):
+    from ..common.constants import NULL
 
     add_parser_prefix(p, prefix_required)
     channel_options = add_parser_channels(p)
@@ -180,6 +76,7 @@ def add_parser_pscheck(p: ArgumentParser) -> None:
 
 
 def add_parser_show_channel_urls(p: ArgumentParser | _ArgumentGroup) -> None:
+    from ..common.constants import NULL
 
     p.add_argument(
         "--show-channel-urls",
@@ -242,6 +139,7 @@ def add_parser_prefix_to_group(m: _MutuallyExclusiveGroup) -> None:
 
 
 def add_parser_json(p: ArgumentParser) -> _ArgumentGroup:
+    from ..common.constants import NULL
 
     output_and_prompt_options = p.add_argument_group(
         "Output, Prompt, and Flow Control Options"
@@ -269,6 +167,7 @@ def add_parser_json(p: ArgumentParser) -> _ArgumentGroup:
 
 
 def add_output_and_prompt_options(p: ArgumentParser) -> _ArgumentGroup:
+    from ..common.constants import NULL
 
     output_and_prompt_options = add_parser_json(p)
     output_and_prompt_options.add_argument(
@@ -289,6 +188,7 @@ def add_output_and_prompt_options(p: ArgumentParser) -> _ArgumentGroup:
 
 
 def add_parser_frozen_env(p: ArgumentParser):
+    from ..common.constants import NULL
 
     p.add_argument(
         "--override-frozen",
@@ -300,6 +200,7 @@ def add_parser_frozen_env(p: ArgumentParser):
 
 
 def add_parser_channels(p: ArgumentParser) -> _ArgumentGroup:
+    from ..common.constants import NULL
 
     channel_customization_options = p.add_argument_group("Channel Customization")
     channel_customization_options.add_argument(
@@ -376,6 +277,7 @@ def add_parser_channels(p: ArgumentParser) -> _ArgumentGroup:
 
 def add_parser_solver_mode(p: ArgumentParser) -> _ArgumentGroup:
     from ..base.constants import DepsModifier
+    from ..common.constants import NULL
 
     solver_mode_options = p.add_argument_group("Solver Mode Modifiers")
     deps_modifiers = solver_mode_options.add_mutually_exclusive_group()
@@ -433,6 +335,7 @@ def add_parser_solver_mode(p: ArgumentParser) -> _ArgumentGroup:
 
 def add_parser_update_modifiers(solver_mode_options: ArgumentParser):
     from ..base.constants import UpdateModifier
+    from ..common.constants import NULL
 
     update_modifiers = solver_mode_options.add_mutually_exclusive_group()
     update_modifiers.add_argument(
@@ -485,6 +388,7 @@ def add_parser_update_modifiers(solver_mode_options: ArgumentParser):
 
 
 def add_parser_prune(p: ArgumentParser) -> None:
+    from ..common.constants import NULL
 
     p.add_argument(
         "--prune",
@@ -500,6 +404,7 @@ def add_parser_solver(p: ArgumentParser) -> None:
 
     See ``context.solver`` for more info.
     """
+    from ..common.constants import NULL
 
     def choices_factory():
         from ..base.context import context
@@ -518,6 +423,7 @@ def add_parser_solver(p: ArgumentParser) -> None:
 
 
 def add_parser_networking(p: ArgumentParser) -> _ArgumentGroup:
+    from ..common.constants import NULL
 
     networking_options = p.add_argument_group("Networking Options")
     networking_options.add_argument(
@@ -548,6 +454,7 @@ def add_parser_networking(p: ArgumentParser) -> _ArgumentGroup:
 
 
 def add_parser_package_install_options(p: ArgumentParser) -> _ArgumentGroup:
+    from ..common.constants import NULL
 
     package_install_options = p.add_argument_group(
         "Package Linking and Install-time Options"
@@ -614,6 +521,7 @@ def add_parser_default_packages(p: ArgumentParser) -> None:
 
 def add_parser_platform(parser):
     from ..base.constants import KNOWN_SUBDIRS
+    from ..common.constants import NULL
 
     parser.add_argument(
         "--subdir",
@@ -630,6 +538,7 @@ def add_parser_platform(parser):
 
 
 def add_parser_verbose(parser: ArgumentParser | _ArgumentGroup) -> None:
+    from ..common.constants import NULL
     from .actions import NullCountAction
 
     parser.add_argument(
@@ -659,6 +568,7 @@ def add_parser_verbose(parser: ArgumentParser | _ArgumentGroup) -> None:
 
 def add_parser_environment_specifier(p: ArgumentParser) -> None:
     from ..base.context import context
+    from ..common.constants import NULL
 
     def choices_factory():
         return context.plugin_manager.get_environment_specifiers()
