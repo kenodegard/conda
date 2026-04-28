@@ -15,6 +15,7 @@ from argparse import (
 from conda.base.constants import KNOWN_SUBDIRS
 
 from ..auxlib.ish import dals
+from ..base.context import context
 from ..common.constants import NULL
 from ..models.environment import Environment
 from ..plugins.environment_exporters.environment_yml import (
@@ -97,17 +98,14 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         ),
     )
 
-    def format_choices_factory():
-        from ..base.context import context
-
-        return sorted(context.plugin_manager.get_exporter_format_mapping())
-
     p.add_argument(
         "--format",
         default=NULL,
         required=False,
         action=LazyAction,
-        choices_factory=format_choices_factory,
+        choices_factory=lambda: sorted(
+            context.plugin_manager.get_exporter_format_mapping()
+        ),
         help=(
             "Format for the exported environment. "
             "If not specified, format will be determined by file extension or default to YAML."
