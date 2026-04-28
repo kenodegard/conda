@@ -216,11 +216,13 @@ class ArgumentParser(ArgumentParserBase):
         **kwargs,
     ):
         if description and description_factory:
-            raise ValueError("description/description_factory are mutually exclusive")
+            raise ValueError(
+                "description and description_factory are mutually exclusive"
+            )
         self._description_factory = description_factory
 
         if epilog and epilog_factory:
-            raise ValueError("epilog/epilog_factory arguments are mutually exclusive")
+            raise ValueError("epilog and epilog_factory are mutually exclusive")
         self._epilog_factory = epilog_factory
 
         super().__init__(
