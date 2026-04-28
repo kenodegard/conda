@@ -15,7 +15,6 @@ from argparse import (
 from conda.base.constants import KNOWN_SUBDIRS
 
 from ..auxlib.ish import dals
-from ..base.context import context
 from ..common.constants import NULL
 from ..models.environment import Environment
 from ..plugins.environment_exporters.environment_yml import (
@@ -29,7 +28,7 @@ class CondaExportWarning(Warning):
 
 
 def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser:
-    from .helpers import LazyChoicesAction, add_parser_json, add_parser_prefix
+    from .helpers import LazyAction, add_parser_json, add_parser_prefix
 
     summary = "Export a given environment"
     description = summary
@@ -98,14 +97,17 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
         ),
     )
 
+    def format_choices_factory():
+        from ..base.context import context
+
+        return sorted(context.plugin_manager.get_exporter_format_mapping())
+
     p.add_argument(
         "--format",
         default=NULL,
         required=False,
-        action=LazyChoicesAction,
-        choices_func=lambda: sorted(
-            context.plugin_manager.get_exporter_format_mapping()
-        ),
+        action=LazyAction,
+        choices_factory=format_choices_factory,
         help=(
             "Format for the exported environment. "
             "If not specified, format will be determined by file extension or default to YAML."
@@ -143,7 +145,7 @@ def configure_parser(sub_parsers: _SubParsersAction, **kwargs) -> ArgumentParser
 
 # TODO Make this aware of channels that were used to install packages
 def execute(args: Namespace, parser: ArgumentParser) -> int:
-    from ..base.context import env_name
+    from ..base.context import context, env_name
     from ..common.io import dashlist
     from ..core.prefix_data import PrefixData
     from ..exceptions import CondaValueError
