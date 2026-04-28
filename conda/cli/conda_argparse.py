@@ -7,14 +7,12 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from argparse import (
-    SUPPRESS,
-    RawDescriptionHelpFormatter,
-)
+from argparse import SUPPRESS, RawDescriptionHelpFormatter
 from argparse import ArgumentParser as ArgumentParserBase
 from importlib import import_module
 from logging import getLogger
 from subprocess import Popen
+from typing import TYPE_CHECKING
 
 from .. import __version__
 from ..auxlib.ish import dals
@@ -42,6 +40,7 @@ from .helpers import (  # noqa: F401
     add_parser_solver_mode,
     add_parser_update_modifiers,
     add_parser_verbose,
+    lazyproperty,
 )
 from .main_clean import configure_parser as configure_parser_clean
 from .main_commands import configure_parser as configure_parser_commands
@@ -63,6 +62,10 @@ from .main_rename import configure_parser as configure_parser_rename
 from .main_run import configure_parser as configure_parser_run
 from .main_search import configure_parser as configure_parser_search
 from .main_update import configure_parser as configure_parser_update
+
+if TYPE_CHECKING:
+    from argparse import HelpFormatter
+    from collections.abc import Callable
 
 log = getLogger(__name__)
 
@@ -198,9 +201,35 @@ def find_builtin_commands(parser: ArgumentParserBase) -> tuple[str, ...]:
 
 
 class ArgumentParser(ArgumentParserBase):
-    def __init__(self, *args, add_help=True, **kwargs):
-        kwargs.setdefault("formatter_class", RawDescriptionHelpFormatter)
-        super().__init__(*args, add_help=False, **kwargs)
+    description: str | None = lazyproperty()
+    epilog: str | None = lazyproperty()
+
+    def __init__(
+        self,
+        *,  # force keyword-only arguments
+        add_help: bool = True,
+        formatter_class: type[HelpFormatter] = RawDescriptionHelpFormatter,
+        description: str | None = None,
+        description_factory: Callable[[], str | None] | None = None,
+        epilog: str | None = None,
+        epilog_factory: Callable[[], str | None] | None = None,
+        **kwargs,
+    ):
+        if description and description_factory:
+            raise ValueError("description/description_factory are mutually exclusive")
+        self._description_factory = description_factory
+
+        if epilog and epilog_factory:
+            raise ValueError("epilog/epilog_factory arguments are mutually exclusive")
+        self._epilog_factory = epilog_factory
+
+        super().__init__(
+            add_help=False,
+            formatter_class=formatter_class,
+            description=description,
+            epilog=epilog,
+            **kwargs,
+        )
 
         if add_help:
             add_parser_help(self)
