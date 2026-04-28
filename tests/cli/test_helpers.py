@@ -6,10 +6,14 @@ from __future__ import annotations
 
 import argparse
 from argparse import ArgumentParser, Namespace
+from typing import TYPE_CHECKING
 
 import pytest
 
 from conda.cli.helpers import LazyAction
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.fixture
@@ -34,29 +38,6 @@ def solver_choices():
 def export_format_choices():
     """Fixture providing realistic export format choices."""
     return ["environment-json", "environment-yaml", "explicit", "json", "yaml"]
-
-
-@pytest.fixture
-def choices_factory_counter():
-    """Fixture providing a choices function that counts calls."""
-    call_count = {"count": 0}
-
-    def func():
-        call_count["count"] += 1
-        return ["option1", "option2", "option3"]
-
-    func.call_count = lambda: call_count["count"]
-    return func
-
-
-@pytest.fixture
-def lazy_action(simple_choices):
-    """Fixture providing a basic LazyAction."""
-    return LazyAction(
-        option_strings=["--test"],
-        dest="test",
-        choices_factory=lambda: simple_choices,
-    )
 
 
 @pytest.fixture
@@ -89,23 +70,23 @@ def test_lazy_choices_action_initialization(simple_choices):
     assert action.dest == "test"
 
 
-def test_choices_property_evaluation(choices_factory_counter):
+def test_choices_property_evaluation(mocker: MockerFixture):
     """Test that choices property dynamically evaluates choices_factory."""
+    value = ["option1", "option2", "option3"]
+    factory = mocker.Mock(return_value=value)
     action = LazyAction(
         option_strings=["--test"],
         dest="test",
-        choices_factory=choices_factory_counter,
+        choices_factory=factory,
     )
 
     # First access
-    choices1 = action.choices
-    assert choices1 == ["option1", "option2", "option3"]
-    assert choices_factory_counter.call_count() == 1
+    assert action.choices == value
+    assert factory.call_count == 1
 
     # Second access - should use cached result (with caching)
-    choices2 = action.choices
-    assert choices2 == ["option1", "option2", "option3"]
-    assert choices_factory_counter.call_count() == 1  # Same count due to caching
+    assert action.choices == value
+    assert factory.call_count == 1  # Same count due to caching
 
 
 def test_choices_setter_ignores_values():
