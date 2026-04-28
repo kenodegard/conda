@@ -404,19 +404,15 @@ def add_parser_solver(p: ArgumentParser) -> None:
 
     See ``context.solver`` for more info.
     """
+    from ..base.context import context
     from ..common.constants import NULL
-
-    def choices_factory():
-        from ..base.context import context
-
-        return context.plugin_manager.get_solvers()
 
     group = p.add_mutually_exclusive_group()
     group.add_argument(
         "--solver",
         dest="solver",
         action=LazyAction,
-        choices_factory=choices_factory,
+        choices_factory=context.plugin_manager.get_solvers,
         help="Choose which solver backend to use.",
         default=NULL,
     )
@@ -570,9 +566,6 @@ def add_parser_environment_specifier(p: ArgumentParser) -> None:
     from ..base.context import context
     from ..common.constants import NULL
 
-    def choices_factory():
-        return context.plugin_manager.get_environment_specifiers()
-
     p.add_argument(
         "--environment-specifier",
         "--env-spec",  # for brevity
@@ -582,7 +575,7 @@ def add_parser_environment_specifier(p: ArgumentParser) -> None:
             LazyAction,
             addendum="Use the `--format` flag instead.",
         ),
-        choices_factory=choices_factory,
+        choices_factory=context.plugin_manager.get_environment_specifiers,
         default=NULL,
     )
 
@@ -590,7 +583,7 @@ def add_parser_environment_specifier(p: ArgumentParser) -> None:
         "--format",
         dest="environment_specifier",
         action=LazyAction,
-        choices_factory=choices_factory,
+        choices_factory=context.plugin_manager.get_environment_specifiers,
         default=NULL,
         help=(
             "Format for the created environment. If not specified, "
