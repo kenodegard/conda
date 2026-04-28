@@ -44,13 +44,14 @@ class lazyproperty:
             return getattr(instance, self.__key__)
         except AttributeError:
             pass
-        factory = getattr(instance, self.__factory__)
+        factory = getattr(instance, self.__factory__, None)
         value = factory() if factory else None
         setattr(instance, self.__key__, value)
         return value
 
     def __set__(self, instance, value):
-        if value is not None or not getattr(instance, self.__factory__):
+        factory = getattr(instance, self.__factory__, None)
+        if value is not None or not factory:
             setattr(instance, self.__key__, value)
 
     def __delete__(self, instance):
