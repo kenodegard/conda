@@ -6,17 +6,10 @@ from __future__ import annotations
 
 import argparse
 from argparse import ArgumentParser, Namespace
-from typing import TYPE_CHECKING
-from uuid import uuid4
 
 import pytest
 
-from conda.cli.helpers import LazyAction, lazyproperty
-
-if TYPE_CHECKING:
-    from typing import Any
-
-    from pytest_mock import MockerFixture
+from conda.cli.helpers import LazyAction
 
 
 @pytest.fixture
@@ -379,76 +372,3 @@ def test_conda_export_format_integration(export_format_choices):
     assert "environment-json" in help_text
     assert "environment-yaml" in help_text
     assert "explicit" in help_text
-
-
-def test_lazyproperty(mocker: MockerFixture):
-    class Foo:
-        bar = lazyproperty()
-
-        def __init__(self, bar=None, bar_factory=None):
-            self._bar_factory = bar_factory
-            self.bar = bar
-
-    foo = Foo()
-    assert foo.bar is None  # return None
-
-    static = uuid4().hex
-    foo = Foo(bar=static)
-    assert foo.bar == static  # return cached
-
-    computed = uuid4().hex
-    bar_factory = mocker.Mock(return_value=computed)
-    foo = Foo(bar_factory=bar_factory)
-    assert foo.bar == computed  # return computed
-    assert bar_factory.call_count == 1
-    assert foo.bar == computed  # return cached
-    assert bar_factory.call_count == 1
-
-    static = uuid4().hex
-    computed = uuid4().hex
-    bar_factory = mocker.Mock(return_value=computed)
-    foo = Foo(bar=static, bar_factory=bar_factory)
-    assert foo.bar == static  # return cached
-    assert bar_factory.call_count == 0
-
-
-@pytest.mark.parametrize(
-    "kwargs,match",
-    [
-        (
-            {"choices": ["a"], "choices_factory": lambda: ["b"]},
-            "choices and choices_factory",
-        ),
-        ({"help": "a", "help_factory": lambda: "b"}, "help and help_factory"),
-    ],
-)
-def test_lazy_action_mutually_exclusive(kwargs: dict, match: str):
-    with pytest.raises(ValueError, match=match):
-        LazyAction(option_strings=["--x"], dest="x", **kwargs)
-
-
-@pytest.mark.parametrize(
-    "key,value",
-    [
-        ("choices", ["a"]),
-        ("help", "a"),
-    ],
-)
-def test_lazy_action_factory(mocker: MockerFixture, key: str, value: Any):
-    factory = mocker.Mock(return_value=value)
-    action = LazyAction(
-        option_strings=["--x"],
-        dest="x",
-        **{f"{key}_factory": factory},
-    )
-
-    # initially uncalled
-    assert factory.call_count == 0
-
-    # first call is evaluated
-    assert getattr(action, key) == value
-    assert factory.call_count == 1
-
-    # second call is cached
-    assert getattr(action, key) == value
-    assert factory.call_count == 1

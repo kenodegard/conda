@@ -19,7 +19,7 @@ from ..auxlib.ish import dals
 from ..base.context import context, sys_rc_path, user_rc_path
 from ..common.compat import isiterable, on_win
 from ..common.constants import NULL
-from .actions import ExtendConstAction, NullCountAction  # noqa: F401
+from .actions import ExtendConstAction, NullCountAction, lazyproperty  # noqa: F401
 from .helpers import (  # noqa: F401
     add_output_and_prompt_options,
     add_parser_channels,
@@ -40,7 +40,6 @@ from .helpers import (  # noqa: F401
     add_parser_solver_mode,
     add_parser_update_modifiers,
     add_parser_verbose,
-    lazyproperty,
 )
 from .main_clean import configure_parser as configure_parser_clean
 from .main_commands import configure_parser as configure_parser_commands
