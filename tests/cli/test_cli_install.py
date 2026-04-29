@@ -14,7 +14,7 @@ from conda.exceptions import DryRunExit, EnvironmentIsFrozenError, Unsatisfiable
 from conda.models.match_spec import MatchSpec
 from conda.testing.integration import package_is_installed
 
-from .. import PYTHON_OLD_SPEC
+from .. import PYTHON_SPEC_OLD
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -81,7 +81,7 @@ def test_find_conflicts_called_once(
         "-c",
         "defaults",
     )
-    with tmp_env(PYTHON_OLD_SPEC, *channels) as prefix:
+    with tmp_env(PYTHON_SPEC_OLD, *channels) as prefix:
         with pytest.raises(UnsatisfiableError):
             # Statistics is a py27 only package allowing us a simple unsatisfiable case
             conda_cli("install", f"--prefix={prefix}", "statistics", "--yes", *channels)
@@ -104,7 +104,7 @@ def test_find_conflicts_called_once(
             "create",
             f"--prefix={path_factory()}",
             "statistics",
-            PYTHON_OLD_SPEC,
+            PYTHON_SPEC_OLD,
             "--yes",
             *channels,
         )

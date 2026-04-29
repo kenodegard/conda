@@ -14,7 +14,7 @@ from conda.exceptions import CondaValueError, DryRunExit, PackagesNotFoundError
 from conda.testing.helpers import forward_to_subprocess, in_subprocess
 from conda.testing.integration import package_is_installed
 
-from .. import PYTHON_OLD_SPEC, PYTHON_SPEC
+from .. import PYTHON_SPEC, PYTHON_SPEC_OLD
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -132,7 +132,7 @@ def test_build_version_shows_as_changed(
     if context.solver == "libmamba" and on_win and forward_to_subprocess(request):
         return
 
-    with tmp_env(PYTHON_OLD_SPEC, "numpy") as prefix:
+    with tmp_env(PYTHON_SPEC_OLD, "numpy") as prefix:
         out, _, _ = conda_cli(
             "install",
             f"--prefix={prefix}",

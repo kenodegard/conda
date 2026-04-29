@@ -81,7 +81,7 @@ from conda.testing.integration import (
     which_or_where,
 )
 
-from . import PYTHON_OLD_SPEC, PYTHON_SPEC, TEST_RECIPES_CHANNEL
+from . import PYTHON_SPEC, PYTHON_SPEC_OLD, TEST_RECIPES_CHANNEL
 from .env import support_file
 
 if TYPE_CHECKING:
@@ -598,14 +598,14 @@ def test_noarch_python_package_reinstall_on_pyver_change(
     tmp_env: TmpEnvFixture, conda_cli: CondaCLIFixture, request: pytest.FixtureRequest
 ):
     """
-    When Python changes versions (e.g. from PYTHON_OLD_SPEC to PYTHON_SPEC) it is important to verify that all the previous
+    When Python changes versions (e.g. from PYTHON_SPEC_OLD to PYTHON_SPEC) it is important to verify that all the previous
     dependencies were transferred over to the new version in ``lib/python3.x/site-packages/*``.
     """
     if context.solver == "libmamba" and on_win and forward_to_subprocess(request):
         return
 
-    with tmp_env("itsdangerous", PYTHON_OLD_SPEC) as prefix:
-        assert (pkg := package_is_installed(prefix, PYTHON_OLD_SPEC))
+    with tmp_env("itsdangerous", PYTHON_SPEC_OLD) as prefix:
+        assert (pkg := package_is_installed(prefix, PYTHON_SPEC_OLD))
         py_ver = get_major_minor_version(pkg.version)
         sp_dir = get_python_site_packages_short_path(py_ver)
         py_file = sp_dir + "/itsdangerous/__init__.py"

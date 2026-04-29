@@ -27,7 +27,7 @@ package.
 This does **not** define conda's highest supported Python version.
 """
 
-PYTHON_OLD_SPEC = f"python={sys.version_info.major}.{sys.version_info.minor - 1}"
+PYTHON_SPEC_OLD = f"python={sys.version_info.major}.{sys.version_info.minor - 1}"
 """MatchSpec for one minor **below** :data:`PYTHON_SPEC` (same major).
 
 For tests that need two distinct conda Python minors (e.g., upgrade).
