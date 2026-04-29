@@ -1337,7 +1337,7 @@ def test_compile_pyc(use_sys_python: bool, tmp_env: TmpEnvFixture):
     else:
         # We force the use of 'the other' Python on Windows so that Windows
         # runtime / DLL incompatibilities will be readily apparent.
-        py_ver = get_major_minor_version(MatchSpec(PYTHON_SPEC).version)
+        py_ver = get_major_minor_version(str(MatchSpec(PYTHON_SPEC).version))
         packages = [PYTHON_SPEC]
 
     with tmp_env(*packages) as prefix:
