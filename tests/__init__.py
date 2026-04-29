@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # This is just here so that tests is a package, so that dotted relative
 # imports work.
+
+import sys
+
 from conda.gateways.logging import initialize_logging
 
 initialize_logging()
@@ -13,3 +16,9 @@ conda_move_to_front_of_PATH()
 from pathlib import Path
 
 TEST_RECIPES_CHANNEL = Path(__file__).parent / "data" / "test-recipes"
+
+PYTHON_SPEC = f"python={sys.version_info.major}.{sys.version_info.minor}"
+"""Python version spec used for testing."""
+
+PYTHON_OLD_SPEC = f"python={sys.version_info.major}.{sys.version_info.minor - 1}"
+"""Python version spec used for testing older versions of Python."""

@@ -14,6 +14,8 @@ from conda.exceptions import CondaValueError, DryRunExit, PackagesNotFoundError
 from conda.testing.helpers import forward_to_subprocess, in_subprocess
 from conda.testing.integration import package_is_installed
 
+from .. import PYTHON_OLD_SPEC, PYTHON_SPEC
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -59,8 +61,8 @@ def test_conda_pip_interop_dependency_satisfied_by_pip(
     monkeypatch.setenv("CONDA_PREFIX_DATA_INTEROPERABILITY", "true")
     reset_context()
     assert context.prefix_data_interoperability
-    with tmp_env("python=3.10", "pip") as prefix:
-        assert package_is_installed(prefix, "python=3.10")
+    with tmp_env(PYTHON_SPEC, "pip") as prefix:
+        assert package_is_installed(prefix, PYTHON_SPEC)
         assert package_is_installed(prefix, "pip")
         stdout, stderr, code = pip_cli("install", "itsdangerous", prefix=prefix)
         assert code == 0, f"pip install failed: {stderr}"
@@ -130,11 +132,11 @@ def test_build_version_shows_as_changed(
     if context.solver == "libmamba" and on_win and forward_to_subprocess(request):
         return
 
-    with tmp_env("python=3.11", "numpy") as prefix:
+    with tmp_env(PYTHON_OLD_SPEC, "numpy") as prefix:
         out, _, _ = conda_cli(
             "install",
             f"--prefix={prefix}",
-            "python=3.12",
+            PYTHON_SPEC,
             "--dry-run",
             raises=DryRunExit,
         )

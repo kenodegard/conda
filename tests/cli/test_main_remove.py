@@ -24,6 +24,8 @@ from conda.testing.integration import (
     package_is_installed,
 )
 
+from .. import PYTHON_SPEC
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -37,9 +39,9 @@ stderr_log_level(TEST_LOG_LEVEL, "requests")
 
 
 def test_remove_all(tmp_env: TmpEnvFixture, conda_cli: CondaCLIFixture):
-    with tmp_env("python") as prefix:
+    with tmp_env(PYTHON_SPEC) as prefix:
         assert (prefix / PYTHON_BINARY).exists()
-        assert package_is_installed(prefix, "python")
+        assert package_is_installed(prefix, PYTHON_SPEC)
 
         # regression test for #2154
         with pytest.raises(PackagesNotFoundInPrefixError) as exc:
@@ -54,9 +56,9 @@ def test_remove_all(tmp_env: TmpEnvFixture, conda_cli: CondaCLIFixture):
 
 
 def test_remove_all_keep_env(tmp_env: TmpEnvFixture, conda_cli: CondaCLIFixture):
-    with tmp_env("python") as prefix:
+    with tmp_env(PYTHON_SPEC) as prefix:
         assert (prefix / PYTHON_BINARY).exists()
-        assert package_is_installed(prefix, "python")
+        assert package_is_installed(prefix, PYTHON_SPEC)
 
         conda_cli("remove", f"--prefix={prefix}", "--all", "--keep-env", "--yes")
         assert not path_is_clean(prefix)
