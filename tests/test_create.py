@@ -922,18 +922,21 @@ def test_list_with_pip_wheel(
         assert package_is_installed(prefix, "python=3.9")
 
 
-def test_rm_rf(clear_package_cache: None, tmp_env: TmpEnvFixture):
+def test_rm_rf(
+    clear_package_cache: None,
+    tmp_env: TmpEnvFixture,
+    test_recipes_channel: Path,
+):
     # regression test for #5980, related to #5847
     from conda.exports import rm_rf as _rm_rf
 
-    with tmp_env(PYTHON_SPEC) as prefix:
+    with tmp_env("small-executable") as prefix:
         # regression test for #5847
         #   when using rm_rf on a file
         assert any(prefix in key for key in PrefixData._cache_)
-        assert (pkg := package_is_installed(prefix, PYTHON_SPEC))
-        py_ver = get_major_minor_version(pkg.version)
-        sp_dir = get_python_site_packages_short_path(py_ver)
-        _rm_rf(prefix / sp_dir / "os.py")
+        # remove file from prefix
+        _rm_rf(prefix / "bin" / "small")
+        # check that PrefixData cache was cleared
         assert not any(prefix in key for key in PrefixData._cache_)
 
     with tmp_env(shallow=False) as prefix:
