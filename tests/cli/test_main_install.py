@@ -14,7 +14,7 @@ from conda.exceptions import CondaValueError, DryRunExit, PackagesNotFoundError
 from conda.testing.helpers import forward_to_subprocess, in_subprocess
 from conda.testing.integration import package_is_installed
 
-from .. import PYTHON_SPEC, PYTHON_SPEC_OLD
+from .. import PYTHON_SPEC
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -122,21 +122,21 @@ def test_build_version_shows_as_changed(
     tmp_env: TmpEnvFixture,
     conda_cli: CondaCLIFixture,
     request: pytest.FixtureRequest,
+    test_recipes_channel: Path,
 ):
     """
-    Test to make sure the changes in build version show up as "REVISED" in install plan.
-    To check this, start with an environment that has python and one other python package.
-    Then, the test should install another version python into the environment, forcing the
-    build variant of the other python package to be "REVISED".
+    ``REVISED`` lines appear when the solver swaps same-version packages that differ only by
+    build string. Use ``buildstring`` from ``tests/data/test-recipes`` (pins ``versioned``)
+    instead of ``numpy`` + Python upgrades so results do not depend on Anaconda defaults.
     """
     if context.solver == "libmamba" and on_win and forward_to_subprocess(request):
         return
 
-    with tmp_env(PYTHON_SPEC_OLD, "numpy") as prefix:
+    with tmp_env("versioned=1.0", "buildstring") as prefix:
         out, _, _ = conda_cli(
             "install",
             f"--prefix={prefix}",
-            PYTHON_SPEC,
+            "versioned=2.0",
             "--dry-run",
             raises=DryRunExit,
         )
