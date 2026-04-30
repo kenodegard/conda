@@ -42,7 +42,9 @@ Common uses: **`deprecated(...)`** (functions, methods, classes), **`.argument`*
 
 - Prefer **clear names** and **small, focused** tests; the body should read as the spec.
 - Keep **docstrings short**; long prose drifts from the code.
-- Avoid **`assert expr, "message"`** — use a **`#` comment** above the line if needed.
+- Avoid **`assert expr, "message"`** when the message only repeats static explanation—use a **`#` comment** above the line if a reader needs a hint.
+- **Exit codes / subprocess output:** Bare **`assert rc == 0`** (or similar) is often too terse for CI; it is fine to attach **stderr or stdout** in the assert message (e.g. **`assert code == 0, f"...{stderr}"`**) so failures stay actionable.
+- **Keep failure messages compact:** Prefer **one line** for **`assert … , msg`** — squash the message as much as you can (e.g. **`stderr` alone**, or a short label plus **`stderr`**). **Multiline** custom messages are hard to scan; reserve them for rare cases where a single line truly cannot carry enough signal.
 - Prefer **native and installed pytest fixtures** (e.g. **`monkeypatch`** for **`setenv`**, **`chdir`**, etc.). **Reuse shared conda fixtures** before adding bespoke setup—see **Finding fixtures** below.
 - Use **`pytest-mock`**’s **`mocker`** instead of **`unittest.mock`** when you need mocks or patches (automatic teardown and idiomatic pytest usage).
 - **`mocker.spy`** is worth knowing for **call observation** or when swapping behavior is unnecessary—it often fits before **`mocker.patch`** or **`monkeypatch.setattr`**. **`monkeypatch`** is still the right tool for **`setenv`**, **`chdir`**, and similar—not attribute mocks.
