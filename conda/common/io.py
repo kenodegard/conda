@@ -355,6 +355,7 @@ def disable_logger(logger_name: str) -> Generator[None, None, None]:
 
 
 @contextmanager
+@deprecated("26.9", "27.3")
 def stderr_log_level(
     level: int,
     logger_name: str | None = None,
