@@ -332,6 +332,7 @@ def argv(args_list: list[str]) -> Generator[None, None, None]:
 
 
 @contextmanager
+@deprecated("26.9", "27.3")
 def disable_logger(logger_name: str) -> Generator[None, None, None]:
     """Temporarily disable a logger by setting its level above CRITICAL.
 
