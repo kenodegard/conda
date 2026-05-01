@@ -218,6 +218,7 @@ def env_unmodified(
 
 
 @contextmanager
+@deprecated("26.9", "27.3")
 def captured(
     stdout: CaptureTarget | None | Any = CaptureTarget.STRING,
     stderr: CaptureTarget | None | Any = CaptureTarget.STRING,
