@@ -317,6 +317,7 @@ def captured(
 
 
 @contextmanager
+@deprecated("26.9", "27.3")
 def argv(args_list: list[str]) -> Generator[None, None, None]:
     """Temporarily replace sys.argv with the given list.
 
