@@ -5,12 +5,11 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from contextlib import nullcontext
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 import pytest
 
 from conda.cli import actions
-from conda.cli.actions import LazyAction, NullCountAction, lazyproperty
+from conda.cli.actions import LazyAction, NullCountAction
 from conda.common.constants import NULL
 
 if TYPE_CHECKING:
@@ -46,37 +45,6 @@ def test_deprecations(function: str, raises: type[Exception] | None):
     raises_context = pytest.raises(raises) if raises else nullcontext()
     with pytest.deprecated_call(), raises_context:
         getattr(node, function)()
-
-
-def test_lazyproperty(mocker: MockerFixture):
-    class Foo:
-        bar = lazyproperty()
-
-        def __init__(self, bar=None, bar_factory=None):
-            self._bar_factory = bar_factory
-            self.bar = bar
-
-    foo = Foo()
-    assert foo.bar is None  # return None
-
-    static = uuid4().hex
-    foo = Foo(bar=static)
-    assert foo.bar == static  # return cached
-
-    computed = uuid4().hex
-    bar_factory = mocker.Mock(return_value=computed)
-    foo = Foo(bar_factory=bar_factory)
-    assert foo.bar == computed  # return computed
-    assert bar_factory.call_count == 1
-    assert foo.bar == computed  # return cached
-    assert bar_factory.call_count == 1
-
-    static = uuid4().hex
-    computed = uuid4().hex
-    bar_factory = mocker.Mock(return_value=computed)
-    foo = Foo(bar=static, bar_factory=bar_factory)
-    assert foo.bar == static  # return cached
-    assert bar_factory.call_count == 0
 
 
 @pytest.mark.parametrize(

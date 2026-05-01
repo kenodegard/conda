@@ -16,10 +16,11 @@ from typing import TYPE_CHECKING
 
 from .. import __version__
 from ..auxlib.ish import dals
+from ..auxlib.type_coercion import maybecall
 from ..base.context import context, sys_rc_path, user_rc_path
 from ..common.compat import isiterable, on_win
 from ..common.constants import NULL
-from .actions import ExtendConstAction, NullCountAction, lazyproperty  # noqa: F401
+from .actions import ExtendConstAction, NullCountAction  # noqa: F401
 from .helpers import (  # noqa: F401
     add_output_and_prompt_options,
     add_parser_channels,
@@ -200,8 +201,10 @@ def find_builtin_commands(parser: ArgumentParserBase) -> tuple[str, ...]:
 
 
 class ArgumentParser(ArgumentParserBase):
-    description: str | None = lazyproperty()
-    epilog: str | None = lazyproperty()
+    _description: str | None
+    _description_factory: Callable[[], str | None] | None
+    _epilog: str | None
+    _epilog_factory: Callable[[], str | None] | None
 
     def __init__(
         self,
@@ -234,6 +237,32 @@ class ArgumentParser(ArgumentParserBase):
 
         if add_help:
             add_parser_help(self)
+
+    @property
+    def description(self) -> str | None:
+        try:
+            return self._description
+        except AttributeError:
+            self._description = maybecall(self._description_factory)
+            return self._description
+
+    @description.setter
+    def description(self, value: str | None):
+        if value is not None or self._description_factory is not None:
+            self._description = value
+
+    @property
+    def epilog(self) -> str | None:
+        try:
+            return self._epilog
+        except AttributeError:
+            self._epilog = maybecall(self._epilog_factory)
+            return self._epilog
+
+    @epilog.setter
+    def epilog(self, value: str | None):
+        if value is not None or self._epilog_factory is not None:
+            self._epilog = value
 
     def _check_value(self, action, value):
         # For our greedy subparsers, sort the choices by their repr for stable output

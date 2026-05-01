@@ -9,11 +9,12 @@ from __future__ import annotations
 from argparse import Action, _CountAction, _StoreAction
 from typing import TYPE_CHECKING
 
+from ..auxlib.type_coercion import maybecall
 from ..common.constants import NULL
 from ..deprecations import deprecated
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Iterable
     from typing import Any
 
 
@@ -69,42 +70,11 @@ class ExtendConstAction(Action):
         setattr(namespace, self.dest, items)
 
 
-class lazyproperty:
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    @property
-    def __key__(self) -> str:
-        return f"_{self.__name__}"
-
-    @property
-    def __factory__(self) -> str:
-        return f"_{self.__name__}_factory"
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        try:
-            return getattr(instance, self.__key__)
-        except AttributeError:
-            pass
-        factory = getattr(instance, self.__factory__, None)
-        value = factory() if factory else None
-        setattr(instance, self.__key__, value)
-        return value
-
-    def __set__(self, instance, value):
-        factory = getattr(instance, self.__factory__, None)
-        if value is not None or not factory:
-            setattr(instance, self.__key__, value)
-
-    def __delete__(self, instance):
-        delattr(instance, self.__key__)
-
-
 class LazyAction(Action):
-    choices: Iterable[Any] | None = lazyproperty()
-    help: str | None = lazyproperty()
+    _choices: Iterable[Any] | None
+    _choices_factory: Callable[[], Iterable[Any] | None] | None
+    _help: str | None
+    _help_factory: Callable[[], str | None] | None
 
     @deprecated.argument(
         "26.9",
@@ -116,7 +86,7 @@ class LazyAction(Action):
         self,
         *,  # force keyword-only arguments
         choices: Iterable[Any] | None = None,
-        choices_factory: Callable[[], Sequence[Any] | None] | None = None,
+        choices_factory: Callable[[], Iterable[Any] | None] | None = None,
         help: str | None = None,
         help_factory: Callable[[], str | None] | None = None,
         **kwargs,
@@ -131,9 +101,35 @@ class LazyAction(Action):
 
         super().__init__(choices=choices, help=help, **kwargs)
 
+    @property
+    def choices(self) -> Iterable[Any] | None:
+        try:
+            return self._choices
+        except AttributeError:
+            self._choices = maybecall(self._choices_factory)
+            return self._choices
+
+    @choices.setter
+    def choices(self, value: Iterable[Any] | None):
+        if value is not None or self._choices_factory is not None:
+            self._choices = value
+
+    @property
+    def help(self) -> str | None:
+        try:
+            return self._help
+        except AttributeError:
+            self._help = maybecall(self._help_factory)
+            return self._help
+
+    @help.setter
+    def help(self, value: str | None):
+        if value is not None or self._help_factory is not None:
+            self._help = value
+
     def __call__(self, parser, namespace, values, option_string=None):
         valid_choices = self.choices
-        if values not in valid_choices:
+        if valid_choices and values not in valid_choices:
             choices_string = ", ".join(f"'{val}'" for val in valid_choices)
             # Use the same format as argparse for consistency
             option_display = "/".join(self.option_strings)
