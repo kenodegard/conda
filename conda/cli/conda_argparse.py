@@ -248,7 +248,7 @@ class ArgumentParser(ArgumentParserBase):
 
     @description.setter
     def description(self, value: str | None):
-        if value is not None or self._description_factory is not None:
+        if value is not None or self._description_factory is None:
             self._description = value
 
     @property
@@ -261,7 +261,7 @@ class ArgumentParser(ArgumentParserBase):
 
     @epilog.setter
     def epilog(self, value: str | None):
-        if value is not None or self._epilog_factory is not None:
+        if value is not None or self._epilog_factory is None:
             self._epilog = value
 
     def _check_value(self, action, value):

@@ -111,7 +111,7 @@ class LazyAction(Action):
 
     @choices.setter
     def choices(self, value: Iterable[Any] | None):
-        if value is not None or self._choices_factory is not None:
+        if value is not None or self._choices_factory is None:
             self._choices = value
 
     @property
@@ -124,7 +124,7 @@ class LazyAction(Action):
 
     @help.setter
     def help(self, value: str | None):
-        if value is not None or self._help_factory is not None:
+        if value is not None or self._help_factory is None:
             self._help = value
 
     def __call__(self, parser, namespace, values, option_string=None):
