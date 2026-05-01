@@ -14,7 +14,7 @@ Bootstrap and set up an environment for **development and testing** from the rep
 
 ## Code style
 
-- Org-wide Python style policies (imports, docstrings, typing, etc.) are summarized in the **[Conda Style Guide](https://github.com/conda/infrastructure/blob/main/infrastructure/STYLEGUIDE.md)** (`conda/infrastructure` on GitHub).
+- Org-wide Python style policies (imports, docstrings, typing, etc.) are summarized in the **[Conda Style Guide](https://github.com/conda/infrastructure/blob/main/STYLEGUIDE.md)** (`conda/infrastructure` on GitHub).
 - **This repo** configures formatting and lint with **[Ruff](https://docs.astral.sh/ruff/)** in **`pyproject.toml`** and **`.pre-commit-config.yaml`** (`ruff format`, `ruff check`). Hooks are **[prek](https://prek.j178.dev/)**-compatible (drop-in for **[pre-commit](https://pre-commit.com/)**); assume **prek** / **pre-commit** is already set up locally—this document does not cover installing or enabling hooks. CI enforces the same checks if a change bypasses hooks.
 
 ## Changelog (`news/`)
